@@ -1,0 +1,8 @@
+# Per-machine Claude Code settings (sandbox, allowlists, etc.)
+.claude/settings.local.json
+
+.ds
+
+# macOS
+.DS_Store
+plans/

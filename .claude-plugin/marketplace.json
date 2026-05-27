@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "wai",
+  "description": "Martin Litre's personal Claude Code toolkit: opinionated skills, agents, and commands for engineering workflows.",
+  "owner": {
+    "name": "Martin Litre",
+    "email": "mnlitre@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "wai",
+      "description": "All wai skills, agents, and commands in one bundle.",
+      "source": "./plugins/wai",
+      "category": "productivity"
+    }
+  ]
+}

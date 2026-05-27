@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diffscape, Code Review</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/highlight.js/github-dark.min.css">
+  <link rel="stylesheet" href="/vendor/diff2html/diff2html.min.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header id="header">
+    <div class="header-left">
+      <h1>diffscape</h1>
+      <span id="baseline-info" class="header-meta"></span>
+      <span id="file-summary" class="header-meta"></span>
+    </div>
+    <div class="header-right">
+      <div class="view-toggle">
+        <button id="btn-unified" class="toggle-btn active" title="Unified diff">Unified</button>
+        <button id="btn-split" class="toggle-btn" title="Side-by-side diff">Split</button>
+      </div>
+      <span id="header-comment-count" class="header-comment-count hidden"></span>
+      <button id="btn-approve" class="action-btn approve-btn">Approve</button>
+      <button id="btn-request-changes" class="action-btn request-changes-btn">Request Changes</button>
+    </div>
+  </header>
+
+  <div id="layout">
+    <button id="btn-toggle-sidebar" class="sidebar-toggle" title="Toggle sidebar">◀</button>
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <span>Files</span>
+      </div>
+      <div class="sidebar-search">
+        <input id="file-search" type="text" placeholder="Filter files...">
+      </div>
+      <ul id="file-list"></ul>
+    </aside>
+
+    <main id="diff-container">
+      <div id="loading">Loading diff...</div>
+      <div id="empty-state" class="hidden">
+        <p>No changes to review.</p>
+      </div>
+      <div id="diffs"></div>
+    </main>
+  </div>
+
+  <!-- Review submission modal -->
+  <div id="review-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h2 id="modal-title">Submit Review</h2>
+      <textarea id="review-summary" placeholder="Overall review comment (optional)..." rows="3"></textarea>
+      <div id="comment-summary"></div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="action-btn cancel-btn">Cancel</button>
+        <button id="modal-approve" class="action-btn approve-btn hidden">Approve</button>
+        <button id="modal-request-changes" class="action-btn request-changes-btn hidden">Request Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submitted overlay -->
+  <div id="submitted-overlay" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content submitted-message">
+      <h2>Review Submitted</h2>
+      <p id="submitted-text"></p>
+      <p>Return to your terminal to continue.</p>
+    </div>
+  </div>
+
+  <script src="/vendor/highlight.js/highlight.min.js"></script>
+  <script src="/vendor/diff2html/diff2html.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
