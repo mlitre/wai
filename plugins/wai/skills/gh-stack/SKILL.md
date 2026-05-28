@@ -27,9 +27,9 @@ For per-command details (flags, exit codes, output format), see [COMMANDS.md](./
 4. **Global git config already set** (one-time, project-wide):
    - `git config --global rerere.enabled true`, conflict-resolution memory.
    - `git config --global remote.pushDefault origin`, picks origin automatically when multiple remotes exist.
-   - `git config --global format.signoff true`, auto-appends `Signed-off-by` to every `git commit`, including the one `gh stack add -Am` runs under the hood.
+   - **Global `prepare-commit-msg` hook**, appends `Signed-off-by` to every commit using the git-config identity. Installed at `~/.config/git/hooks/prepare-commit-msg`, registered via `git config --global core.hooksPath ~/.config/git/hooks`. (Note, `format.signoff` only applies to `git format-patch`, not `git commit`; the hook is the only way to auto-DCO on every commit.)
 
-   Verify with `git config --global --get <key>`. Never set per-repo, the global values cover every repo on this machine.
+   Verify configs with `git config --global --get <key>`. Verify the hook fired on a recent commit with `git log -1 --format=%B`, the trailer should be present. Never set per-repo, the global values cover every repo on this machine.
 
 ## Push gating, hard rule
 
@@ -54,7 +54,7 @@ If the user already approved the action, log the approval scope (per-command, pe
 - Bypasses the `commit` skill entirely, so no review of subject length, body, or banned phrases.
 - Bypasses the `wai:receiving-code-review` discipline if the commit is acting on review feedback.
 
-The signoff trailer is handled, `format.signoff=true` adds it automatically. Everything else (subject style, scope, body, no AI attribution, no plan labels like "Phase N" / "Dx") is on the commit message, which means it has to go through the `commit` skill or a hand-written `git commit -s -m "<conventional subject>"`.
+The signoff trailer is handled by the global `prepare-commit-msg` hook (prereq #4), so no manual `-s` is required. Everything else (subject style, scope, body, no AI attribution, no plan labels like "Phase N" / "Dx") is on the commit message itself, which means it has to go through the `commit` skill or a hand-written `git commit -m "<conventional subject>"`.
 
 **Always:**
 
