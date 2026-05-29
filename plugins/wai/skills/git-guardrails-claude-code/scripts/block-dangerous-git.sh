@@ -13,6 +13,11 @@ DANGEROUS_PATTERNS=(
   "git restore \."
   "push --force"
   "reset --hard"
+  "gh stack push"
+  "gh stack submit"
+  "gh stack sync"
+  "gh stack link"
+  "gh stack unstack"
 )
 
 for pattern in "${DANGEROUS_PATTERNS[@]}"; do

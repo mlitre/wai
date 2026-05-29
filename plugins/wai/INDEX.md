@@ -13,7 +13,8 @@ Catalog of every artifact the plugin ships. One line per artifact, alphabetical 
 - **diagnose**, Disciplined diagnosis loop for hard bugs. Output is a Diagnosis Report only; trivial fix → `cavecrew-builder`, non-trivial → `/create-plan`.
 - **ds**, Browser-based code review for the working tree (Diffscape). Engine exception, runs a local Node server. See [DIFFSCAPE.md](./DIFFSCAPE.md).
 - **finishing-a-development-branch**, Menu after implementation: merge locally, ready-for-review checklist (print-only), keep, or discard.
-- **git-guardrails-claude-code**, Installs a Claude Code hook that blocks destructive git commands (push, reset --hard, clean, etc.).
+- **git-guardrails-claude-code**, Installs a Claude Code hook that blocks destructive git commands (push, reset --hard, clean, etc.) plus `gh stack` write/destroy commands (push, submit, sync, link, unstack).
+- **gh-stack**, Manage stacked branches and pull requests with the `gh-stack` GitHub CLI extension. Workflow-agnostic; gates push/submit/sync/link/unstack/sync --prune. Teaches a phased pattern for fan-out DAGs (land shared base first, then multiple stacks). `SKILL.md` + `COMMANDS.md` split.
 - **grill-me**, Interview-style stress test of a plan or design. Auto-engages docs mode (glossary challenge, ADR offers) when `CONTEXT.md` exists.
 - **handoff**, Compact the current session into a handoff doc; written to the OS temp directory so it doesn't pollute the workspace.
 - **improve-codebase-architecture**, Architecture review producing an HTML report of deepening candidates, then a grilling loop on the picked one.
