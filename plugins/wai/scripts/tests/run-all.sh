@@ -3,7 +3,7 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 declare -A results
-for test in test-server-info.sh test-heartbeat.sh test-parallel.sh test-security.sh; do
+for test in test-server-info.sh test-heartbeat.sh test-parallel.sh test-security.sh test-queue.sh; do
   echo "=== Running $test ==="
   if bash "$SCRIPT_DIR/$test"; then
     results[$test]="PASS"
