@@ -161,16 +161,120 @@ cmd_cancel() {
   rm -rf "$path"
 }
 
+# claim: atomically claim the highest-priority pending task. Scans pending/
+# in sort order (priority prefix then time-sortable id = priority-then-FIFO)
+# and races to `mv` each candidate into claimed/<id>. The first winning mv
+# stamps claim.json and prints "claimed/<id>"; a losing mv (another worker won)
+# falls through to the next candidate. Exits 1 with no output if nothing is
+# claimable.
+cmd_claim() {
+  local d id
+  for d in $(claim_candidates); do
+    id="${d#*-}"
+    if mv "$WAI_QUEUE_DIR/pending/$d" "$WAI_QUEUE_DIR/claimed/$id" 2>/dev/null; then
+      jq -n \
+        --arg worker "$WAI_QUEUE_WORKER" \
+        --argjson ts "$(date +%s)" \
+        '{worker:$worker, ts:$ts}' \
+        > "$WAI_QUEUE_DIR/claimed/$id/claim.json"
+      echo "$WAI_QUEUE_DIR/claimed/$id"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# claim_candidates: print pending dir basenames in claim order (sorted by name,
+# which is "<prio>-<id>": priority ascending, then time-sortable id = FIFO).
+# Prints nothing when pending/ is empty.
+claim_candidates() {
+  local d
+  for d in "$WAI_QUEUE_DIR"/pending/*; do
+    [[ -d "$d" ]] || continue
+    basename "$d"
+  done | sort
+}
+
+# complete <id> [--result-file <f>]: finalize a claimed task as done. Writes
+# result.md (from --result-file, else stdin) then moves claimed/<id> -> done/<id>.
+cmd_complete() {
+  local id="${1:-}"
+  [[ -n "$id" ]] || die "complete: missing <id>"
+  shift
+  local result_file=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --result-file) result_file="$2"; shift 2 ;;
+      *) die "complete: unknown option: $1" ;;
+    esac
+  done
+  local hit
+  hit="$(find_task "$id")" || die "complete: no such task: $id"
+  [[ "${hit%% *}" == "claimed" ]] || die "complete: task not claimed: $id"
+  if [[ -n "$result_file" ]]; then
+    cat "$result_file" > "$WAI_QUEUE_DIR/claimed/$id/result.md"
+  else
+    cat > "$WAI_QUEUE_DIR/claimed/$id/result.md"
+  fi
+  rm -f "$WAI_QUEUE_DIR/claimed/$id/claim.json"
+  mv "$WAI_QUEUE_DIR/claimed/$id" "$WAI_QUEUE_DIR/done/$id"
+}
+
+# fail <id> [--reason <s>]: a claimed task failed. Bump meta.attempt; if it
+# reaches WAI_QUEUE_RETRIES, dead-letter to failed/<id> with result.md =
+# "error: <reason>". Otherwise drop claim.json and requeue to
+# pending/<prio>-<id>. Prints the resulting state ("failed" or "pending").
+cmd_fail() {
+  local id="${1:-}"
+  [[ -n "$id" ]] || die "fail: missing <id>"
+  shift
+  local reason=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --reason) reason="$2"; shift 2 ;;
+      *) die "fail: unknown option: $1" ;;
+    esac
+  done
+  local hit
+  hit="$(find_task "$id")" || die "fail: no such task: $id"
+  [[ "${hit%% *}" == "claimed" ]] || die "fail: task not claimed: $id"
+  local cdir="$WAI_QUEUE_DIR/claimed/$id"
+
+  local meta="$cdir/meta.json" attempt priority
+  attempt="$(jq -r '.attempt' "$meta")"
+  attempt=$((attempt + 1))
+  local tmp="$meta.tmp.$$"
+  jq --argjson attempt "$attempt" '.attempt = $attempt' "$meta" > "$tmp"
+  mv "$tmp" "$meta"
+
+  if [[ "$attempt" -ge "$WAI_QUEUE_RETRIES" ]]; then
+    printf 'error: %s\n' "$reason" > "$cdir/result.md"
+    rm -f "$cdir/claim.json"
+    mv "$cdir" "$WAI_QUEUE_DIR/failed/$id"
+    echo "failed $id"
+  else
+    priority="$(jq -r '.priority' "$meta")"
+    local prio2
+    prio2="$(printf '%02d' "$priority")"
+    rm -f "$cdir/claim.json"
+    mv "$cdir" "$WAI_QUEUE_DIR/pending/${prio2}-${id}"
+    echo "pending $id"
+  fi
+}
+
 main() {
-  [[ $# -ge 1 ]] || die "usage: wai-queue <init|add|status|result|cancel> [args]"
+  [[ $# -ge 1 ]] || die "usage: wai-queue <init|add|status|result|cancel|claim|complete|fail> [args]"
   local sub="$1"; shift
   case "$sub" in
-    init)   cmd_init "$@" ;;
-    add)    cmd_add "$@" ;;
-    status) cmd_status "$@" ;;
-    result) cmd_result "$@" ;;
-    cancel) cmd_cancel "$@" ;;
-    *)      die "unknown subcommand: $sub" ;;
+    init)     cmd_init "$@" ;;
+    add)      cmd_add "$@" ;;
+    status)   cmd_status "$@" ;;
+    result)   cmd_result "$@" ;;
+    cancel)   cmd_cancel "$@" ;;
+    claim)    cmd_claim "$@" ;;
+    complete) cmd_complete "$@" ;;
+    fail)     cmd_fail "$@" ;;
+    *)        die "unknown subcommand: $sub" ;;
   esac
 }
 

@@ -166,5 +166,155 @@ st="$(bash "$CLI" status)"
 echo "$st" | grep -Eq 'pending[^0-9]*0' || fail "status pending != 0 after cancel: $st"
 log "Test 5: PASS"
 
+################################################################################
+# Test 6: claim is atomic under a 2-worker race (exactly one winner)
+################################################################################
+log "Test 6: two concurrent claims partition one task (exactly one winner)"
+fresh_queue
+bash "$CLI" init >/dev/null
+bash "$CLI" add "race task" >/dev/null
+out_a="$(mktemp)"; out_b="$(mktemp)"
+SCRATCH_DIRS+=("$out_a" "$out_b")
+ec_a=0; ec_b=0
+bash "$CLI" claim >"$out_a" 2>/dev/null &
+pid_a=$!
+bash "$CLI" claim >"$out_b" 2>/dev/null &
+pid_b=$!
+wait "$pid_a" || ec_a=$?
+wait "$pid_b" || ec_b=$?
+winners=0
+[[ $ec_a -eq 0 && -s "$out_a" ]] && winners=$((winners + 1))
+[[ $ec_b -eq 0 && -s "$out_b" ]] && winners=$((winners + 1))
+[[ $winners -eq 1 ]] || fail "expected exactly 1 claim winner, got $winners (ec_a=$ec_a ec_b=$ec_b)"
+claimed_count=0
+for d in "$WAI_QUEUE_DIR"/claimed/*; do [[ -d "$d" ]] && claimed_count=$((claimed_count + 1)); done
+[[ $claimed_count -eq 1 ]] || fail "expected 1 dir in claimed/, got $claimed_count"
+# The winner printed claimed/<id>
+winner_out="$out_a"; [[ $ec_b -eq 0 && -s "$out_b" ]] && winner_out="$out_b"
+grep -q "claimed/" "$winner_out" || fail "winner did not print a claimed/ path: $(cat "$winner_out")"
+log "Test 6: PASS"
+
+################################################################################
+# Test 6b: 3 workers / 3 tasks partition cleanly (each task claimed once)
+################################################################################
+log "Test 6b: 3 concurrent claims over 3 tasks -> clean partition"
+fresh_queue
+bash "$CLI" init >/dev/null
+for i in 1 2 3; do bash "$CLI" add "task $i" >/dev/null; done
+declare -a couts=()
+declare -a cpids=()
+for i in 1 2 3; do
+  o="$(mktemp)"; SCRATCH_DIRS+=("$o"); couts+=("$o")
+  bash "$CLI" claim >"$o" 2>/dev/null &
+  cpids+=("$!")
+done
+wins=0
+for idx in 0 1 2; do
+  ec=0; wait "${cpids[$idx]}" || ec=$?
+  [[ $ec -eq 0 && -s "${couts[$idx]}" ]] && wins=$((wins + 1))
+done
+[[ $wins -eq 3 ]] || fail "expected 3 claim winners over 3 tasks, got $wins"
+ccount=0
+for d in "$WAI_QUEUE_DIR"/claimed/*; do [[ -d "$d" ]] && ccount=$((ccount + 1)); done
+[[ $ccount -eq 3 ]] || fail "expected 3 dirs in claimed/, got $ccount"
+pcount=0
+for d in "$WAI_QUEUE_DIR"/pending/*; do [[ -d "$d" ]] && pcount=$((pcount + 1)); done
+[[ $pcount -eq 0 ]] || fail "expected pending/ empty after 3 claims, got $pcount"
+log "Test 6b: PASS"
+
+################################################################################
+# Test 7: claim returns priority-then-FIFO order
+################################################################################
+log "Test 7: claim ordering is priority-then-FIFO"
+fresh_queue
+bash "$CLI" init >/dev/null
+# Two priority-50 tasks at distinct timestamps, then a priority-10 task.
+id_old="$(bash "$CLI" add --priority 50 "old p50")"
+sleep 1
+id_new="$(bash "$CLI" add --priority 50 "new p50")"
+id_hi="$(bash "$CLI" add --priority 10 "p10 hi")"
+c1="$(bash "$CLI" claim)"
+grep -q "/$id_hi\$" <<<"$c1" || fail "first claim should be priority-10 $id_hi, got $c1"
+c2="$(bash "$CLI" claim)"
+grep -q "/$id_old\$" <<<"$c2" || fail "second claim should be older p50 $id_old, got $c2"
+c3="$(bash "$CLI" claim)"
+grep -q "/$id_new\$" <<<"$c3" || fail "third claim should be newer p50 $id_new, got $c3"
+log "Test 7: PASS"
+
+################################################################################
+# Test 8: complete moves claimed -> done and result <id> prints the result
+################################################################################
+log "Test 8: complete moves to done/ and result prints stored output"
+fresh_queue
+export WAI_QUEUE_WORKER="test-worker-1"
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "to complete")"
+claimed_path="$(bash "$CLI" claim)"
+[[ "$claimed_path" == *"/claimed/$id" ]] || fail "claim did not return claimed/$id, got $claimed_path"
+[[ -f "$WAI_QUEUE_DIR/claimed/$id/claim.json" ]] || fail "claim.json not written"
+jq -e --arg w "$WAI_QUEUE_WORKER" '.worker == $w' "$WAI_QUEUE_DIR/claimed/$id/claim.json" >/dev/null \
+  || fail "claim.json worker mismatch"
+jq -e '.ts | type == "number"' "$WAI_QUEUE_DIR/claimed/$id/claim.json" >/dev/null \
+  || fail "claim.json ts not a number"
+rf="$(mktemp)"; SCRATCH_DIRS+=("$rf")
+printf 'the result body\n' >"$rf"
+bash "$CLI" complete "$id" --result-file "$rf" || fail "complete exited nonzero"
+[[ -d "$WAI_QUEUE_DIR/done/$id" ]] || fail "complete did not move task to done/"
+[[ ! -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "complete left task in claimed/"
+res="$(bash "$CLI" result "$id")"
+grep -q "the result body" <<<"$res" || fail "result did not print stored body: $res"
+# complete on a non-claimed id is nonzero
+if bash "$CLI" complete "$id" --result-file "$rf" >/dev/null 2>&1; then
+  fail "complete on a non-claimed (done) id exited 0"
+fi
+log "Test 8: PASS"
+
+################################################################################
+# Test 8b: complete reads result from stdin when --result-file is omitted
+################################################################################
+log "Test 8b: complete reads stdin result when --result-file omitted"
+fresh_queue
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "stdin complete")"
+bash "$CLI" claim >/dev/null
+printf 'stdin result\n' | bash "$CLI" complete "$id" || fail "complete via stdin exited nonzero"
+res="$(bash "$CLI" result "$id")"
+grep -q "stdin result" <<<"$res" || fail "complete did not store stdin result: $res"
+log "Test 8b: PASS"
+
+################################################################################
+# Test 9: fail retries (requeue) then dead-letters at the retry limit
+################################################################################
+log "Test 9: fail requeues with attempt bump, then dead-letters at limit"
+export WAI_QUEUE_RETRIES=2
+fresh_queue
+export WAI_QUEUE_RETRIES=2
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "flaky task")"
+bash "$CLI" claim >/dev/null
+# First failure: attempt -> 1, requeued to pending/
+out="$(bash "$CLI" fail "$id" --reason "boom one")"
+grep -q "pending" <<<"$out" || fail "first fail did not report pending requeue: $out"
+[[ ! -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "first fail left task in claimed/"
+req="$WAI_QUEUE_DIR/pending/50-$id"
+[[ -d "$req" ]] || fail "first fail did not requeue to pending/50-$id"
+[[ ! -f "$req/claim.json" ]] || fail "requeued task still has claim.json"
+jq -e '.attempt == 1' "$req/meta.json" >/dev/null || fail "attempt not bumped to 1 after first fail"
+# Re-claim and fail again: attempt -> 2 >= retries -> failed/
+bash "$CLI" claim >/dev/null
+out="$(bash "$CLI" fail "$id" --reason "boom two")"
+grep -q "failed" <<<"$out" || fail "second fail did not report dead-letter: $out"
+[[ -d "$WAI_QUEUE_DIR/failed/$id" ]] || fail "second fail did not dead-letter to failed/"
+[[ ! -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "second fail left task in claimed/"
+jq -e '.attempt == 2' "$WAI_QUEUE_DIR/failed/$id/meta.json" >/dev/null || fail "attempt not 2 at dead-letter"
+res="$(bash "$CLI" result "$id")"
+grep -q "boom two" <<<"$res" || fail "dead-letter result.md missing reason: $res"
+grep -q "error:" <<<"$res" || fail "dead-letter result.md missing 'error:' prefix: $res"
+# fail on a non-claimed id is nonzero
+if bash "$CLI" fail "$id" --reason x >/dev/null 2>&1; then
+  fail "fail on a non-claimed (failed) id exited 0"
+fi
+log "Test 9: PASS"
+
 echo "$PREFIX PASS: all queue tests passed"
 exit 0
