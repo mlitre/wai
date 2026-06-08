@@ -57,11 +57,11 @@ A worker is a session running `/loop` (see `/queue-worker`). Every tick does exa
 3. Read `$t/meta.json` (`cwd`, `agent`, `id`) and `$t/prompt.md`.
 4. **Dispatch one subagent** of type `meta.agent`, instructed to work in `meta.cwd`, with `prompt.md` as its task. Capture its final text. This is where the real work happens — in throwaway context.
 5. Settle the task:
-   - Success → `wai-queue complete <id> --result-file <captured-output>`.
+   - Success → store the captured text as the result. `complete` reads it from **stdin** (or from a file path via `--result-file <path>` — it is a path, not the text): `printf '%s' "$result" | wai-queue complete <id>`.
    - Failure → `wai-queue fail <id> --reason "<why>"`. **Failure** = the subagent died/returned nothing, **or** its result's first line is the sentinel `FAILED:` (task prompts should instruct subagents to emit `FAILED: <reason>` when they can't finish).
 6. Reschedule. Keep only a one-line ack in the loop session.
 
-`fail` retries up to `WAI_QUEUE_RETRIES` (default 2), then dead-letters to `failed/` and cascade-fails any dependents that can no longer run. `claim` enforces deps and is atomic, so you can run **many** worker sessions against one queue safely — throughput scales with how many you start.
+`fail` retries until the task has been attempted `WAI_QUEUE_RETRIES` times (default 2 — i.e. one retry), then dead-letters to `failed/` and cascade-fails any dependents that can no longer run. `reap` counts toward the same budget, so a perpetually-stale task dead-letters rather than requeueing forever. `claim` enforces deps and is atomic, so you can run **many** worker sessions against one queue safely — throughput scales with how many you start.
 
 ## On-disk model (for debugging)
 

@@ -193,10 +193,12 @@ cmd_claim() {
     blocker="$(dep_blocker "$pdir")"
     if [[ "$blocker" == failed:* ]]; then
       local need="${blocker#failed:}"
-      # Collision-safe: never bury into an existing failed/<id> dir.
+      # Collision-safe + race-safe: win the candidate atomically BEFORE writing
+      # into it (another worker may be racing this same dead-dep candidate). A
+      # losing mv -> skip to the next candidate, never abort the scan under set -e.
       [[ -e "$WAI_QUEUE_DIR/failed/$id" ]] && continue
-      printf 'blocked by %s\n' "$need" > "$pdir/result.md"
-      mv "$pdir" "$WAI_QUEUE_DIR/failed/$id"
+      mv "$pdir" "$WAI_QUEUE_DIR/failed/$id" 2>/dev/null || continue
+      printf 'blocked by %s\n' "$need" > "$WAI_QUEUE_DIR/failed/$id/result.md"
       continue
     fi
     [[ "$blocker" == pending:* ]] && continue
@@ -352,23 +354,26 @@ cascade_failures() {
         else
           id="$(basename "$d")"
         fi
-        # Collision-safe: never bury into an existing failed/<id> dir.
+        # Collision-safe + race-safe: win the candidate atomically before writing
+        # into it; a losing mv just skips (never aborts the sweep under set -e).
         [[ -e "$WAI_QUEUE_DIR/failed/$id" ]] && continue
-        printf 'blocked by %s\n' "$need" > "$d/result.md"
         rm -f "$d/claim.json"
-        mv "$d" "$WAI_QUEUE_DIR/failed/$id"
+        mv "$d" "$WAI_QUEUE_DIR/failed/$id" 2>/dev/null || continue
+        printf 'blocked by %s\n' "$need" > "$WAI_QUEUE_DIR/failed/$id/result.md"
         moved=1
       done
     done
   done
 }
 
-# reap: requeue stale claims. For each claimed/<id>, if its claim.json.ts is
+# reap: recover stale claims. For each claimed/<id>, if its claim.json.ts is
 # older than WAI_QUEUE_STALE seconds — or claim.json is missing entirely (a
 # worker that died between the claim mv and the stamp, or lost its stamp) — bump
-# meta.attempt, drop claim.json, and move the task back to pending/<prio>-<id>
-# so another worker can pick it up. Fresh claims are left untouched. Prints each
-# requeued id. Always exits 0.
+# meta.attempt and either requeue it to pending/<prio>-<id> (another worker can
+# pick it up) or, once attempt reaches WAI_QUEUE_RETRIES, dead-letter it to
+# failed/ (and cascade) so a perpetually-stale task can't livelock the queue.
+# Fresh claims are left untouched. Prints each reaped id ("<id>" requeued,
+# "<id> failed" dead-lettered). Always exits 0.
 cmd_reap() {
   local now d id meta cjson ts priority prio2 attempt tmp
   now="$(date +%s)"
@@ -384,17 +389,31 @@ cmd_reap() {
     fi
     priority="$(jq -r '.priority' "$meta")"
     prio2="$(printf '%02d' "$priority")"
-    # Collision-safe (check before any mutation): never bury into an existing
-    # pending/<prio>-<id>, and don't half-requeue if the target is taken.
-    [[ -e "$WAI_QUEUE_DIR/pending/${prio2}-${id}" ]] && continue
     attempt="$(jq -r '.attempt // 0' "$meta")"
     attempt=$((attempt + 1))
-    tmp="$meta.tmp.$$"
-    jq --argjson attempt "$attempt" '.attempt = $attempt' "$meta" > "$tmp"
-    mv "$tmp" "$meta"
-    rm -f "$cjson"
-    mv "$d" "$WAI_QUEUE_DIR/pending/${prio2}-${id}"
-    echo "$id"
+    # Reaps count toward the attempt budget: a task that can't make progress in
+    # WAI_QUEUE_RETRIES attempts — whether by failure OR by repeatedly stranding
+    # its worker — dead-letters, so a perpetually-stale task can't livelock the
+    # queue by requeueing forever. Collision check runs before any mutation.
+    if [[ "$attempt" -ge "$WAI_QUEUE_RETRIES" ]]; then
+      [[ -e "$WAI_QUEUE_DIR/failed/$id" ]] && continue
+      tmp="$meta.tmp.$$"
+      jq --argjson attempt "$attempt" '.attempt = $attempt' "$meta" > "$tmp"
+      mv "$tmp" "$meta"
+      printf 'reaped past retry limit (%s attempts)\n' "$attempt" > "$d/result.md"
+      rm -f "$cjson"
+      mv "$d" "$WAI_QUEUE_DIR/failed/$id" 2>/dev/null || continue
+      cascade_failures
+      echo "$id failed"
+    else
+      [[ -e "$WAI_QUEUE_DIR/pending/${prio2}-${id}" ]] && continue
+      tmp="$meta.tmp.$$"
+      jq --argjson attempt "$attempt" '.attempt = $attempt' "$meta" > "$tmp"
+      mv "$tmp" "$meta"
+      rm -f "$cjson"
+      mv "$d" "$WAI_QUEUE_DIR/pending/${prio2}-${id}" 2>/dev/null || continue
+      echo "$id"
+    fi
   done
 }
 

@@ -25,7 +25,7 @@ Run it in **separate sessions** to scale throughput — claims are atomic, so N 
 3. Read `$t/meta.json` (`id`, `cwd`, `agent`) and `$t/prompt.md`.
 4. **Dispatch exactly one subagent** of type `meta.agent`, told to work in `meta.cwd`, with `prompt.md` as its instructions. Capture only its final text. This is the only place real work runs — in context that dies on return.
 5. Settle:
-   - Success → `wai-queue complete <id> --result-file <captured>`.
+   - Success → pipe the captured text into `complete` via stdin: `printf '%s' "$result" | wai-queue complete <id>` (or `--result-file <path>` if you wrote it to a file — it's a path, not the text).
    - Failure → `wai-queue fail <id> --reason "<why>"`. Failure = the subagent died/returned nothing, or its result's first line is `FAILED:` (instruct task subagents to emit `FAILED: <reason>` when they can't finish).
 6. Keep only a one-line ack in this session, then reschedule.
 

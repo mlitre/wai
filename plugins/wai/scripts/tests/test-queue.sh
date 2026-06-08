@@ -468,8 +468,12 @@ fresh_queue
 export WAI_QUEUE_RETRIES=1
 bash "$CLI" init >/dev/null
 id_a="$(bash "$CLI" add "task A")"
-id_b="$(bash "$CLI" add --needs "$id_a" "task B")"
-id_c="$(bash "$CLI" add --needs "$id_b" "task C")"
+# Force the dependent (C) to sort BEFORE its parent (B) in cascade's pending
+# scan (priority 01 vs 50): pass 1 sees C's dep B still pending (skip) and fails
+# B; only pass 2 catches C. A single-pass (non-fixpoint) cascade leaves C in
+# pending and fails the "pending empty" assertion below — so this pins the loop.
+id_b="$(bash "$CLI" add --needs "$id_a" --priority 50 "task B")"
+id_c="$(bash "$CLI" add --needs "$id_b" --priority 1 "task C")"
 # Claim and fail A once: WAI_QUEUE_RETRIES=1 means attempt 1 >= 1 -> dead-letter.
 bash "$CLI" claim >/dev/null   # claims A (only ready task; B,C blocked)
 out="$(bash "$CLI" fail "$id_a" --reason "A boom")"
@@ -568,6 +572,27 @@ WAI_QUEUE_STALE=1800 bash "$CLI" reap >/dev/null
 [[ ! -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "reap left orphaned claim in claimed/"
 jq -e '.attempt == 1' "$WAI_QUEUE_DIR/pending/50-$id/meta.json" >/dev/null || fail "reap did not bump attempt on orphan"
 log "Test 21: PASS"
+
+################################################################################
+# Test 22: reap dead-letters a task that stays stale past the retry limit,
+# instead of requeueing it forever (livelock guard). Reaps count toward attempt.
+################################################################################
+log "Test 22: reap dead-letters a stale task at the retry cap"
+fresh_queue
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "perpetually stale")"
+bash "$CLI" claim >/dev/null || fail "claim failed"
+cj="$WAI_QUEUE_DIR/claimed/$id/claim.json"
+old_ts=$(( $(date +%s) - 100 ))
+jq --argjson ts "$old_ts" '.ts = $ts' "$cj" > "$cj.tmp" && mv "$cj.tmp" "$cj"
+# WAI_QUEUE_RETRIES=1: attempt 0 -> 1, 1 >= 1 -> dead-letter, not requeue.
+out="$(WAI_QUEUE_STALE=1 WAI_QUEUE_RETRIES=1 bash "$CLI" reap)"
+grep -q "$id" <<<"$out" || fail "reap did not report the dead-lettered id: $out"
+[[ -d "$WAI_QUEUE_DIR/failed/$id" ]] || fail "reap did not dead-letter a task past the retry limit"
+[[ ! -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "reap left the dead-lettered task in claimed/"
+[[ ! -d "$WAI_QUEUE_DIR/pending/50-$id" ]] || fail "reap requeued instead of dead-lettering at the cap"
+bash "$CLI" result "$id" | grep -q "reaped past retry limit" || fail "dead-lettered task missing reaped reason"
+log "Test 22: PASS"
 
 echo "$PREFIX PASS: all queue tests passed"
 exit 0
