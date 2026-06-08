@@ -5,7 +5,7 @@
 #   init                       Create the queue state dirs (idempotent). Prints $WAI_QUEUE_DIR.
 #   add [opts] <prompt|->      Enqueue a task. <prompt> of '-' reads stdin. Prints the bare id.
 #     --cwd <dir>              Working dir the task runs in (default: $PWD).
-#     --priority <n>           Priority, lower = higher (default: 50, zero-padded to 2 digits).
+#     --priority <n>           Priority 0-99, lower = higher (default: 50, zero-padded to 2 digits).
 #     --agent <type>           Subagent type (default: general-purpose).
 #     --needs <id,...>         Comma-separated task ids this task depends on (default: none).
 #   status                     Print per-state counts and one line per task.
@@ -16,14 +16,14 @@
 #   WAI_QUEUE_DIR      Queue root.            ${XDG_DATA_HOME:-$HOME/.local/share}/wai/queue
 #   WAI_QUEUE_RETRIES  Max attempts.          2
 #   WAI_QUEUE_STALE    Stale-claim seconds.   1800
-#   WAI_QUEUE_WORKER   Worker identity.       $(hostname)-$$
+#   WAI_QUEUE_WORKER   Worker identity.       $(hostname || $HOSTNAME || unknown)-$$
 #
 set -euo pipefail
 
 WAI_QUEUE_DIR="${WAI_QUEUE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/wai/queue}"
 WAI_QUEUE_RETRIES="${WAI_QUEUE_RETRIES:-2}"
 WAI_QUEUE_STALE="${WAI_QUEUE_STALE:-1800}"
-WAI_QUEUE_WORKER="${WAI_QUEUE_WORKER:-$(hostname)-$$}"
+WAI_QUEUE_WORKER="${WAI_QUEUE_WORKER:-$(hostname 2>/dev/null || echo "${HOSTNAME:-unknown}")-$$}"
 
 die() { echo "wai-queue: $*" >&2; exit 1; }
 
@@ -74,6 +74,7 @@ cmd_add() {
   fi
 
   [[ "$priority" =~ ^[0-9]+$ ]] || die "add: --priority must be a non-negative integer"
+  (( priority >= 0 && priority <= 99 )) || die "add: --priority must be an integer 0-99"
   local prio2
   prio2="$(printf '%02d' "$priority")"
 
@@ -87,9 +88,13 @@ cmd_add() {
     needs_json="$(printf '%s' "$needs" | jq -R 'split(",")')"
   fi
 
+  # Build the task in a dot-prefixed staging dir on the same filesystem, then
+  # atomically rename it into pending/ so a concurrent claimer never observes a
+  # half-built task dir (prompt.md/meta.json appearing piecemeal).
   local taskdir="$WAI_QUEUE_DIR/pending/${prio2}-${id}"
-  mkdir -p "$taskdir"
-  printf '%s\n' "$prompt" > "$taskdir/prompt.md"
+  local stagedir="$WAI_QUEUE_DIR/.staging/${id}"
+  mkdir -p "$stagedir"
+  printf '%s\n' "$prompt" > "$stagedir/prompt.md"
   jq -n \
     --arg id "$id" \
     --arg cwd "$cwd" \
@@ -98,7 +103,10 @@ cmd_add() {
     --argjson needs "$needs_json" \
     --arg created "$created" \
     '{id:$id, cwd:$cwd, priority:$priority, agent:$agent, needs:$needs, created:$created, attempt:0}' \
-    > "$taskdir/meta.json"
+    > "$stagedir/meta.json"
+
+  [[ -e "$taskdir" ]] && { rm -rf "$stagedir"; die "add: task id collision: $id"; }
+  mv "$stagedir" "$taskdir"
 
   echo "$id"
 }
@@ -168,16 +176,24 @@ cmd_cancel() {
 # falls through to the next candidate. Exits 1 with no output if nothing is
 # claimable.
 cmd_claim() {
-  local d id
+  local d id cdir
   for d in $(claim_candidates); do
     id="${d#*-}"
-    if mv "$WAI_QUEUE_DIR/pending/$d" "$WAI_QUEUE_DIR/claimed/$id" 2>/dev/null; then
+    cdir="$WAI_QUEUE_DIR/claimed/$id"
+    # Guard against POSIX `mv into an existing dir`: if claimed/$id already
+    # exists, mv would bury the source *inside* it (claimed/$id/<prio>-$id/) and
+    # return 0, clobbering an existing claim.json. Skip such a candidate.
+    [[ -e "$cdir" ]] && continue
+    if mv "$WAI_QUEUE_DIR/pending/$d" "$cdir" 2>/dev/null; then
+      # Stamp claim.json crash-atomically (tmp -> rename), so the dir is never
+      # parked in claimed/ without a claim.json the reaper keys on.
       jq -n \
         --arg worker "$WAI_QUEUE_WORKER" \
         --argjson ts "$(date +%s)" \
         '{worker:$worker, ts:$ts}' \
-        > "$WAI_QUEUE_DIR/claimed/$id/claim.json"
-      echo "$WAI_QUEUE_DIR/claimed/$id"
+        > "$cdir/claim.json.tmp.$$" \
+        && mv "$cdir/claim.json.tmp.$$" "$cdir/claim.json"
+      echo "$cdir"
       return 0
     fi
   done
@@ -212,6 +228,7 @@ cmd_complete() {
   hit="$(find_task "$id")" || die "complete: no such task: $id"
   [[ "${hit%% *}" == "claimed" ]] || die "complete: task not claimed: $id"
   if [[ -n "$result_file" ]]; then
+    [[ -f "$result_file" ]] || die "complete: no such result file: $result_file"
     cat "$result_file" > "$WAI_QUEUE_DIR/claimed/$id/result.md"
   else
     cat > "$WAI_QUEUE_DIR/claimed/$id/result.md"
@@ -241,7 +258,7 @@ cmd_fail() {
   local cdir="$WAI_QUEUE_DIR/claimed/$id"
 
   local meta="$cdir/meta.json" attempt priority
-  attempt="$(jq -r '.attempt' "$meta")"
+  attempt="$(jq -r '.attempt // 0' "$meta")"
   attempt=$((attempt + 1))
   local tmp="$meta.tmp.$$"
   jq --argjson attempt "$attempt" '.attempt = $attempt' "$meta" > "$tmp"

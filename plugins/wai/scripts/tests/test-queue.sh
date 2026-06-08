@@ -286,7 +286,6 @@ log "Test 8b: PASS"
 # Test 9: fail retries (requeue) then dead-letters at the retry limit
 ################################################################################
 log "Test 9: fail requeues with attempt bump, then dead-letters at limit"
-export WAI_QUEUE_RETRIES=2
 fresh_queue
 export WAI_QUEUE_RETRIES=2
 bash "$CLI" init >/dev/null
@@ -315,6 +314,94 @@ if bash "$CLI" fail "$id" --reason x >/dev/null 2>&1; then
   fail "fail on a non-claimed (failed) id exited 0"
 fi
 log "Test 9: PASS"
+
+################################################################################
+# Test 10: claim is collision-safe — never buries a task inside an existing
+# claimed/<id> dir (finding #1). Force claimed/<id> to pre-exist, then claim.
+################################################################################
+log "Test 10: claim skips a candidate when claimed/<id> already exists (no nesting)"
+fresh_queue
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "collide me")"
+mkdir -p "$WAI_QUEUE_DIR/claimed/$id"
+# claim may exit 0 or 1 here; what matters is it must NOT bury the pending task
+# inside claimed/$id (the POSIX `mv into existing dir` corruption).
+bash "$CLI" claim >/dev/null 2>&1 || true
+nested=()
+for d in "$WAI_QUEUE_DIR/claimed/$id"/*-"$id"; do
+  [[ -e "$d" ]] && nested+=("$d")
+done
+[[ ${#nested[@]} -eq 0 ]] || fail "claim buried the task: found nested $(printf '%s ' "${nested[@]}")"
+log "Test 10: PASS"
+
+################################################################################
+# Test 11: add publishes atomically — no .staging leftover (finding #3).
+################################################################################
+log "Test 11: add leaves no .staging leftover and a well-formed pending dir"
+fresh_queue
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "atomic publish")"
+taskdir="$WAI_QUEUE_DIR/pending/50-$id"
+[[ -d "$taskdir" ]] || fail "add did not publish pending dir $taskdir"
+[[ -f "$taskdir/meta.json" && -f "$taskdir/prompt.md" ]] || fail "published task not well-formed"
+if [[ -d "$WAI_QUEUE_DIR/.staging" ]]; then
+  for d in "$WAI_QUEUE_DIR/.staging"/*; do
+    [[ -e "$d" ]] && fail "add left a .staging leftover: $d"
+  done
+fi
+log "Test 11: PASS"
+
+################################################################################
+# Test 12: complete --result-file <bad-path> dies cleanly, leaves task claimed
+# (finding #4).
+################################################################################
+log "Test 12: complete with a missing --result-file dies cleanly, no move"
+fresh_queue
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "bad result file")"
+bash "$CLI" claim >/dev/null
+err="$(mktemp)"; SCRATCH_DIRS+=("$err")
+if bash "$CLI" complete "$id" --result-file /no/such/file 2>"$err"; then
+  fail "complete with missing result file exited 0 (expected nonzero die)"
+fi
+grep -q "complete:" "$err" || fail "complete bad-file error not prefixed 'complete:': $(cat "$err")"
+[[ -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "complete bad-file moved task out of claimed/"
+[[ ! -d "$WAI_QUEUE_DIR/done/$id" ]] || fail "complete bad-file leaked task into done/"
+log "Test 12: PASS"
+
+################################################################################
+# Test 13: worker-id resolution tolerates a failing hostname (finding #5).
+################################################################################
+log "Test 13: init/status succeed when hostname is missing/failing"
+fresh_queue
+shimbin="$(mktemp -d -t wai-queue-bin-XXXXXX)"
+SCRATCH_DIRS+=("$shimbin")
+printf '#!/usr/bin/env bash\nexit 1\n' > "$shimbin/hostname"
+chmod +x "$shimbin/hostname"
+(
+  export PATH="$shimbin:$PATH"
+  unset WAI_QUEUE_WORKER
+  bash "$CLI" init >/dev/null || exit 11
+  bash "$CLI" status >/dev/null || exit 12
+) || fail "init/status failed with a failing hostname (worker-id fallback missing)"
+log "Test 13: PASS"
+
+################################################################################
+# Test 14: priority is bounded 0-99 and claim ordering is numeric (finding #6).
+################################################################################
+log "Test 14: --priority >= 100 dies; priorities 5/50/99 claim in ascending order"
+fresh_queue
+bash "$CLI" init >/dev/null
+if bash "$CLI" add --priority 100 "too big" >/dev/null 2>&1; then
+  fail "add --priority 100 exited 0 (expected die: must be 0-99)"
+fi
+id5="$(bash "$CLI" add --priority 5 "p5")"
+id50="$(bash "$CLI" add --priority 50 "p50")"
+id99="$(bash "$CLI" add --priority 99 "p99")"
+c1="$(bash "$CLI" claim)"; grep -q "/$id5\$" <<<"$c1" || fail "first claim should be p5 $id5, got $c1"
+c2="$(bash "$CLI" claim)"; grep -q "/$id50\$" <<<"$c2" || fail "second claim should be p50 $id50, got $c2"
+c3="$(bash "$CLI" claim)"; grep -q "/$id99\$" <<<"$c3" || fail "third claim should be p99 $id99, got $c3"
+log "Test 14: PASS"
 
 echo "$PREFIX PASS: all queue tests passed"
 exit 0
