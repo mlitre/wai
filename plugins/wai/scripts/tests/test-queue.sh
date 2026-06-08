@@ -517,5 +517,57 @@ for d in "$WAI_QUEUE_DIR"/pending/*; do [[ -d "$d" ]] && pcount=$((pcount + 1));
 [[ $pcount -eq 0 ]] || fail "pending/ not empty after claim dead-lettered B, got $pcount"
 log "Test 18: PASS"
 
+################################################################################
+# Test 19: reap requeues a stale claim (claim.json.ts older than WAI_QUEUE_STALE)
+# back to pending/ with attempt bumped and no claim.json left behind.
+################################################################################
+log "Test 19: reap requeues a stale claim and bumps attempt"
+fresh_queue
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "stale task")"
+bash "$CLI" claim >/dev/null || fail "claim failed"
+[[ -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "task not claimed"
+# Age the claim.json ts deterministically (no sleep) well past the staleness window.
+cj="$WAI_QUEUE_DIR/claimed/$id/claim.json"
+old_ts=$(( $(date +%s) - 100 ))
+jq --argjson ts "$old_ts" '.ts = $ts' "$cj" > "$cj.tmp" && mv "$cj.tmp" "$cj"
+reaped="$(WAI_QUEUE_STALE=1 bash "$CLI" reap)"
+grep -q "$id" <<<"$reaped" || fail "reap did not report requeued id $id: $reaped"
+[[ -d "$WAI_QUEUE_DIR/pending/50-$id" ]] || fail "reap did not requeue to pending/50-$id"
+[[ ! -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "reap left task in claimed/"
+[[ ! -f "$WAI_QUEUE_DIR/pending/50-$id/claim.json" ]] || fail "reap left claim.json on requeued task"
+jq -e '.attempt == 1' "$WAI_QUEUE_DIR/pending/50-$id/meta.json" >/dev/null || fail "reap did not bump attempt to 1"
+log "Test 19: PASS"
+
+################################################################################
+# Test 20: reap leaves a fresh claim untouched (ts within WAI_QUEUE_STALE).
+################################################################################
+log "Test 20: reap leaves a fresh claim untouched"
+fresh_queue
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "fresh task")"
+bash "$CLI" claim >/dev/null || fail "claim failed"
+WAI_QUEUE_STALE=1800 bash "$CLI" reap >/dev/null
+[[ -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "reap requeued a fresh claim"
+[[ -f "$WAI_QUEUE_DIR/claimed/$id/claim.json" ]] || fail "reap removed claim.json from a fresh claim"
+[[ ! -d "$WAI_QUEUE_DIR/pending/50-$id" ]] || fail "fresh claim wrongly moved to pending/"
+log "Test 20: PASS"
+
+################################################################################
+# Test 21: reap treats a claimed dir with no claim.json as an orphaned claim
+# (a worker died between mv and stamp, or after losing its stamp) and requeues it.
+################################################################################
+log "Test 21: reap requeues an orphaned claim (missing claim.json)"
+fresh_queue
+bash "$CLI" init >/dev/null
+id="$(bash "$CLI" add "orphan task")"
+bash "$CLI" claim >/dev/null || fail "claim failed"
+rm -f "$WAI_QUEUE_DIR/claimed/$id/claim.json"
+WAI_QUEUE_STALE=1800 bash "$CLI" reap >/dev/null
+[[ -d "$WAI_QUEUE_DIR/pending/50-$id" ]] || fail "reap did not requeue an orphaned claim"
+[[ ! -d "$WAI_QUEUE_DIR/claimed/$id" ]] || fail "reap left orphaned claim in claimed/"
+jq -e '.attempt == 1' "$WAI_QUEUE_DIR/pending/50-$id/meta.json" >/dev/null || fail "reap did not bump attempt on orphan"
+log "Test 21: PASS"
+
 echo "$PREFIX PASS: all queue tests passed"
 exit 0

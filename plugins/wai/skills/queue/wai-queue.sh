@@ -11,6 +11,10 @@
 #   status                     Print per-state counts and one line per task.
 #   result <id>                Print the result.md of a done/failed task (nonzero if absent).
 #   cancel <id>                Remove a non-claimed task; refuses to cancel a claimed task.
+#   claim                      Atomically claim the next eligible task. Prints claimed/<id>; nonzero if none.
+#   complete <id> [--result-file <f>]   Finish a claimed task, store result, move to done/.
+#   fail <id> [--reason <s>]   Fail a claimed task; retry, else dead-letter + cascade to dependents.
+#   reap                       Requeue stale claims (older than WAI_QUEUE_STALE) back to pending/.
 #
 # Environment (with defaults):
 #   WAI_QUEUE_DIR      Queue root.            ${XDG_DATA_HOME:-$HOME/.local/share}/wai/queue
@@ -359,8 +363,43 @@ cascade_failures() {
   done
 }
 
+# reap: requeue stale claims. For each claimed/<id>, if its claim.json.ts is
+# older than WAI_QUEUE_STALE seconds — or claim.json is missing entirely (a
+# worker that died between the claim mv and the stamp, or lost its stamp) — bump
+# meta.attempt, drop claim.json, and move the task back to pending/<prio>-<id>
+# so another worker can pick it up. Fresh claims are left untouched. Prints each
+# requeued id. Always exits 0.
+cmd_reap() {
+  local now d id meta cjson ts priority prio2 attempt tmp
+  now="$(date +%s)"
+  for d in "$WAI_QUEUE_DIR"/claimed/*; do
+    [[ -d "$d" ]] || continue
+    id="$(basename "$d")"
+    meta="$d/meta.json"
+    [[ -f "$meta" ]] || continue   # not a real task dir; leave it alone
+    cjson="$d/claim.json"
+    if [[ -f "$cjson" ]]; then
+      ts="$(jq -r '.ts // 0' "$cjson")"
+      (( now - ts > WAI_QUEUE_STALE )) || continue   # fresh claim, skip
+    fi
+    priority="$(jq -r '.priority' "$meta")"
+    prio2="$(printf '%02d' "$priority")"
+    # Collision-safe (check before any mutation): never bury into an existing
+    # pending/<prio>-<id>, and don't half-requeue if the target is taken.
+    [[ -e "$WAI_QUEUE_DIR/pending/${prio2}-${id}" ]] && continue
+    attempt="$(jq -r '.attempt // 0' "$meta")"
+    attempt=$((attempt + 1))
+    tmp="$meta.tmp.$$"
+    jq --argjson attempt "$attempt" '.attempt = $attempt' "$meta" > "$tmp"
+    mv "$tmp" "$meta"
+    rm -f "$cjson"
+    mv "$d" "$WAI_QUEUE_DIR/pending/${prio2}-${id}"
+    echo "$id"
+  done
+}
+
 main() {
-  [[ $# -ge 1 ]] || die "usage: wai-queue <init|add|status|result|cancel|claim|complete|fail> [args]"
+  [[ $# -ge 1 ]] || die "usage: wai-queue <init|add|status|result|cancel|claim|complete|fail|reap> [args]"
   local sub="$1"; shift
   case "$sub" in
     init)     cmd_init "$@" ;;
@@ -371,6 +410,7 @@ main() {
     claim)    cmd_claim "$@" ;;
     complete) cmd_complete "$@" ;;
     fail)     cmd_fail "$@" ;;
+    reap)     cmd_reap "$@" ;;
     *)        die "unknown subcommand: $sub" ;;
   esac
 }
