@@ -20,6 +20,7 @@ Catalog of every artifact the plugin ships. One line per artifact, alphabetical 
 - **issue-triage**, Issue-tracker state machine with role-driven actions; preps issues for AFK agents.
 - **prototype**, Throwaway prototype to flesh out a design (CLI for state/logic, multi-variant route for UI).
 - **pr-triage**, Single-table digest of authored + review-assigned PRs with an "Action on me?" verdict per row.
+- **queue**, Bash-backed inter-agent task queue. Orchestrator enqueues tasks; `/loop` workers claim each and run it in a throwaway subagent. Atomic-claim race-safe, DAG deps, retry-then-cascade, stale-claim reaper. CLI scaffolded via `/queue init`.
 - **receiving-code-review**, Verify-before-implementing reviewer-feedback discipline. No performative agreement.
 - **requesting-code-review**, Review-specific subagent dispatch wrapper. For full multi-agent PR audits, use `/review-pr`.
 - **security-patterns**, 9 high-signal security patterns + a ready-to-paste bash-only `PreToolUse` hook.
@@ -59,6 +60,8 @@ Catalog of every artifact the plugin ships. One line per artifact, alphabetical 
 - **/implement-plan**, Walk the DAG. Dispatches `wai-implementer` → `wai-spec-reviewer` → `code-reviewer` per task, parallel up to `parallel_cap`. Retry-once → quarantine.
 - **/iterate-plan**, Surgical edits to an existing implementation plan with new feedback.
 - **/local-review**, Set up a worktree for reviewing a colleague's branch (`/local-review <user>:<branch>`).
+- **/queue**, Orchestrator ops for the task queue: `init` scaffolds the CLI, `add`/`status`/`result`/`cancel` manage tasks. Pairs with `/queue-worker` and the `queue` skill.
+- **/queue-worker**, Run a `/loop` worker that drains the queue: reap → claim → dispatch a per-task subagent → complete/fail. Loop context stays clear; the worker session is disposable.
 - **/research-codebase**, Map an unfamiliar codebase by spawning parallel subagents, what exists, where it lives, how it works.
 - **/resume-handoff**, Resume work from a handoff document, read it, verify codebase state still matches, propose a plan, then start.
 - **/review-pr**, Multi-agent PR review. Dispatches code, tests, comments, errors, types, simplify agents and aggregates findings.
