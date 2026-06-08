@@ -177,15 +177,30 @@ cmd_cancel() {
 # falls through to the next candidate. Exits 1 with no output if nothing is
 # claimable.
 cmd_claim() {
-  local d id cdir
+  local d id cdir pdir blocker
   for d in $(claim_candidates); do
     id="${d#*-}"
     cdir="$WAI_QUEUE_DIR/claimed/$id"
+    pdir="$WAI_QUEUE_DIR/pending/$d"
+    # DAG gating: a candidate is only eligible when every need is in done/.
+    # If any need is already in failed/, the candidate is dead — dead-letter it
+    # (blocked by <need>) and keep scanning. If any need is neither done nor
+    # failed (still pending/claimed), it's not yet eligible — skip and continue.
+    blocker="$(dep_blocker "$pdir")"
+    if [[ "$blocker" == failed:* ]]; then
+      local need="${blocker#failed:}"
+      # Collision-safe: never bury into an existing failed/<id> dir.
+      [[ -e "$WAI_QUEUE_DIR/failed/$id" ]] && continue
+      printf 'blocked by %s\n' "$need" > "$pdir/result.md"
+      mv "$pdir" "$WAI_QUEUE_DIR/failed/$id"
+      continue
+    fi
+    [[ "$blocker" == pending:* ]] && continue
     # Guard against POSIX `mv into an existing dir`: if claimed/$id already
     # exists, mv would bury the source *inside* it (claimed/$id/<prio>-$id/) and
     # return 0, clobbering an existing claim.json. Skip such a candidate.
     [[ -e "$cdir" ]] && continue
-    if mv "$WAI_QUEUE_DIR/pending/$d" "$cdir" 2>/dev/null; then
+    if mv "$pdir" "$cdir" 2>/dev/null; then
       # Stamp claim.json crash-atomically (tmp -> rename), so the dir is never
       # parked in claimed/ without a claim.json the reaper keys on.
       jq -n \
@@ -210,6 +225,33 @@ claim_candidates() {
     [[ -d "$d" ]] || continue
     basename "$d"
   done | sort
+}
+
+# dep_blocker <taskdir>: inspect the task's meta.needs (a JSON array) and report
+# its eligibility. Prints "failed:<need>" if a need is already dead-lettered
+# (this task is dead), "pending:<need>" if a need is not yet in done/ (not yet
+# eligible), or nothing (every need is in done/, so the task is claimable). An
+# empty needs array always prints nothing (no deps -> eligible).
+dep_blocker() {
+  local taskdir="$1" need pending=""
+  local meta="$taskdir/meta.json"
+  [[ -f "$meta" ]] || return 0
+  while IFS= read -r need; do
+    [[ -n "$need" ]] || continue
+    # A failed need makes the task dead regardless of other deps: report it
+    # immediately (failed/ wins over a still-pending dep).
+    if [[ -d "$WAI_QUEUE_DIR/failed/$need" ]]; then
+      printf 'failed:%s\n' "$need"
+      return 0
+    fi
+    # Remember the first unmet (not-yet-done) need, but keep scanning in case a
+    # later need is in failed/ (which takes precedence).
+    if [[ -z "$pending" && ! -d "$WAI_QUEUE_DIR/done/$need" ]]; then
+      pending="$need"
+    fi
+  done < <(jq -r '.needs[]? // empty' "$meta")
+  [[ -n "$pending" ]] && printf 'pending:%s\n' "$pending"
+  return 0
 }
 
 # complete <id> [--result-file <f>]: finalize a claimed task as done. Writes
@@ -269,6 +311,9 @@ cmd_fail() {
     printf 'error: %s\n' "$reason" > "$cdir/result.md"
     rm -f "$cdir/claim.json"
     mv "$cdir" "$WAI_QUEUE_DIR/failed/$id"
+    # Now that this task is terminal-failed, transitively dead-letter every
+    # dependent (and their dependents) that can no longer ever run.
+    cascade_failures
     echo "failed $id"
   else
     priority="$(jq -r '.priority' "$meta")"
@@ -278,6 +323,40 @@ cmd_fail() {
     mv "$cdir" "$WAI_QUEUE_DIR/pending/${prio2}-${id}"
     echo "pending $id"
   fi
+}
+
+# cascade_failures: fixpoint sweep that dead-letters every task with a need now
+# in failed/. Repeatedly scans pending/ and claimed/; each task whose dep_blocker
+# reports "failed:<need>" is moved to failed/<id> with result.md = "blocked by
+# <need>". Loops the whole sweep until a pass makes no moves, so transitive
+# chains (A->B->C) all collapse. The claimed/ scan is a safe no-op in practice
+# (a claimed task's deps were all in done/ at claim time, and done/ is terminal)
+# but is kept per spec.
+cascade_failures() {
+  local moved=1 state d id blocker need
+  while (( moved )); do
+    moved=0
+    for state in pending claimed; do
+      for d in "$WAI_QUEUE_DIR/$state"/*; do
+        [[ -d "$d" ]] || continue
+        blocker="$(dep_blocker "$d")"
+        [[ "$blocker" == failed:* ]] || continue
+        need="${blocker#failed:}"
+        # pending dirs are "<prio>-<id>"; claimed dirs are bare "<id>".
+        if [[ "$state" == pending ]]; then
+          id="$(basename "$d")"; id="${id#*-}"
+        else
+          id="$(basename "$d")"
+        fi
+        # Collision-safe: never bury into an existing failed/<id> dir.
+        [[ -e "$WAI_QUEUE_DIR/failed/$id" ]] && continue
+        printf 'blocked by %s\n' "$need" > "$d/result.md"
+        rm -f "$d/claim.json"
+        mv "$d" "$WAI_QUEUE_DIR/failed/$id"
+        moved=1
+      done
+    done
+  done
 }
 
 main() {

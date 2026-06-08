@@ -412,5 +412,110 @@ id010="$(bash "$CLI" add --priority 010 "p010")" || fail "add --priority 010 mus
 jq -e '.priority == 10' "$WAI_QUEUE_DIR/pending/10-$id010/meta.json" >/dev/null || fail "p010 meta .priority must be decimal 10"
 log "Test 14: PASS"
 
+################################################################################
+# Test 15: claim gates on deps — B (--needs A) is never claimable while A is
+# pending or claimed; once A completes, B becomes claimable.
+################################################################################
+log "Test 15: claim never returns a task whose dep is still pending/claimed"
+fresh_queue
+bash "$CLI" init >/dev/null
+id_a="$(bash "$CLI" add "task A")"
+id_b="$(bash "$CLI" add --needs "$id_a" "task B")"
+# A is pending: the only claimable task is A (B is blocked).
+c1="$(bash "$CLI" claim)" || fail "claim found nothing while A is ready"
+grep -q "/$id_a\$" <<<"$c1" || fail "first claim should be A $id_a, got $c1"
+# A is now claimed (not done): B must still NOT be claimable -> claim exits 1.
+if c="$(bash "$CLI" claim 2>/dev/null)"; then
+  fail "claim returned a task while A claimed-not-done (got $c); B must be gated"
+fi
+[[ ! -d "$WAI_QUEUE_DIR/claimed/$id_b" ]] || fail "B was claimed while its dep A is unmet"
+# Complete A: B's dep is now satisfied -> claim returns B.
+printf 'A done\n' | bash "$CLI" complete "$id_a" || fail "complete A failed"
+c2="$(bash "$CLI" claim)" || fail "claim found nothing after A completed; B should be ready"
+grep -q "/$id_b\$" <<<"$c2" || fail "claim after A done should be B $id_b, got $c2"
+log "Test 15: PASS"
+
+################################################################################
+# Test 16: eligible ordering — a blocked task is skipped even if it has higher
+# priority than a ready one. dep < priority for eligibility.
+################################################################################
+log "Test 16: claim skips a blocked higher-priority task for a ready one"
+fresh_queue
+bash "$CLI" init >/dev/null
+# Dep D (low priority so it sorts late) and a high-priority blocked task that
+# needs D, plus a ready mid-priority task. Claim must return a *ready* task,
+# never the blocked one, regardless of the blocked one's higher priority.
+id_d="$(bash "$CLI" add --priority 90 "dep D")"
+id_blocked="$(bash "$CLI" add --priority 1 --needs "$id_d" "blocked hi-prio")"
+id_ready="$(bash "$CLI" add --priority 50 "ready mid-prio")"
+c="$(bash "$CLI" claim)" || fail "claim found nothing while ready tasks exist"
+if grep -q "/$id_blocked\$" <<<"$c"; then
+  fail "claim returned the blocked hi-prio task $id_blocked (dep unmet): $c"
+fi
+# It must have claimed a *ready* task: either D (p90) or the ready one (p50).
+# By priority among ready tasks, the p50 ready task wins over p90 D.
+grep -q "/$id_ready\$" <<<"$c" || fail "claim should pick ready p50 $id_ready over blocked p1, got $c"
+[[ ! -d "$WAI_QUEUE_DIR/claimed/$id_blocked" ]] || fail "blocked task was claimed despite unmet dep"
+log "Test 16: PASS"
+
+################################################################################
+# Test 17: cascade fail — A<-B<-C. When A dead-letters (past retry limit), its
+# dependents B and C transitively move to failed/ with "blocked by" reasons,
+# and pending/ ends up empty.
+################################################################################
+log "Test 17: dead-letter of A cascade-fails dependents B and C transitively"
+fresh_queue
+export WAI_QUEUE_RETRIES=1
+bash "$CLI" init >/dev/null
+id_a="$(bash "$CLI" add "task A")"
+id_b="$(bash "$CLI" add --needs "$id_a" "task B")"
+id_c="$(bash "$CLI" add --needs "$id_b" "task C")"
+# Claim and fail A once: WAI_QUEUE_RETRIES=1 means attempt 1 >= 1 -> dead-letter.
+bash "$CLI" claim >/dev/null   # claims A (only ready task; B,C blocked)
+out="$(bash "$CLI" fail "$id_a" --reason "A boom")"
+grep -q "failed" <<<"$out" || fail "fail A did not dead-letter: $out"
+[[ -d "$WAI_QUEUE_DIR/failed/$id_a" ]] || fail "A not in failed/"
+# Cascade: B and C must both be in failed/ now, with blocked-by reasons.
+[[ -d "$WAI_QUEUE_DIR/failed/$id_b" ]] || fail "B did not cascade to failed/"
+[[ -d "$WAI_QUEUE_DIR/failed/$id_c" ]] || fail "C did not cascade to failed/ (transitive)"
+res_b="$(bash "$CLI" result "$id_b")"
+grep -q "blocked by $id_a" <<<"$res_b" || fail "B result.md missing 'blocked by $id_a': $res_b"
+res_c="$(bash "$CLI" result "$id_c")"
+grep -q "blocked by $id_b" <<<"$res_c" || fail "C result.md missing 'blocked by $id_b': $res_c"
+# pending/ must be empty afterward.
+pcount=0
+for d in "$WAI_QUEUE_DIR"/pending/*; do [[ -d "$d" ]] && pcount=$((pcount + 1)); done
+[[ $pcount -eq 0 ]] || fail "pending/ not empty after cascade, got $pcount"
+unset WAI_QUEUE_RETRIES
+log "Test 17: PASS"
+
+################################################################################
+# Test 18: dead-dep on claim — A is already in failed/ and B (--needs A) is the
+# only pending task. claim must dead-letter B (blocked by A) and exit 1 (nothing
+# claimable), never claim B.
+################################################################################
+log "Test 18: claim dead-letters a candidate whose dep is already failed, exits 1"
+fresh_queue
+bash "$CLI" init >/dev/null
+id_a="$(bash "$CLI" add "task A")"
+id_b="$(bash "$CLI" add --needs "$id_a" "task B")"
+# Force A into failed/ directly (no dependents present yet, so no cascade fires).
+mv "$WAI_QUEUE_DIR/pending/50-$id_a" "$WAI_QUEUE_DIR/failed/$id_a"
+printf 'error: forced\n' > "$WAI_QUEUE_DIR/failed/$id_a/result.md"
+# B is the only pending candidate but its dep A is dead -> claim dead-letters B
+# and finds nothing claimable (exit 1).
+if bash "$CLI" claim >/dev/null 2>&1; then
+  fail "claim returned 0 while the only candidate B has a dead dep (must exit 1)"
+fi
+[[ -d "$WAI_QUEUE_DIR/failed/$id_b" ]] || fail "claim did not dead-letter B with the dead dep"
+[[ ! -d "$WAI_QUEUE_DIR/claimed/$id_b" ]] || fail "claim wrongly claimed B with a dead dep"
+res_b="$(bash "$CLI" result "$id_b")"
+grep -q "blocked by $id_a" <<<"$res_b" || fail "B result.md missing 'blocked by $id_a': $res_b"
+# pending/ is now empty.
+pcount=0
+for d in "$WAI_QUEUE_DIR"/pending/*; do [[ -d "$d" ]] && pcount=$((pcount + 1)); done
+[[ $pcount -eq 0 ]] || fail "pending/ not empty after claim dead-lettered B, got $pcount"
+log "Test 18: PASS"
+
 echo "$PREFIX PASS: all queue tests passed"
 exit 0
