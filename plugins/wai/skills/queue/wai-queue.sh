@@ -74,6 +74,7 @@ cmd_add() {
   fi
 
   [[ "$priority" =~ ^[0-9]+$ ]] || die "add: --priority must be a non-negative integer"
+  priority=$((10#$priority))  # force base-10 so leading zeros (08, 010) aren't read as octal
   (( priority >= 0 && priority <= 99 )) || die "add: --priority must be an integer 0-99"
   local prio2
   prio2="$(printf '%02d' "$priority")"

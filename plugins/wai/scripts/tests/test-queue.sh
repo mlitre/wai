@@ -401,6 +401,15 @@ id99="$(bash "$CLI" add --priority 99 "p99")"
 c1="$(bash "$CLI" claim)"; grep -q "/$id5\$" <<<"$c1" || fail "first claim should be p5 $id5, got $c1"
 c2="$(bash "$CLI" claim)"; grep -q "/$id50\$" <<<"$c2" || fail "second claim should be p50 $id50, got $c2"
 c3="$(bash "$CLI" claim)"; grep -q "/$id99\$" <<<"$c3" || fail "third claim should be p99 $id99, got $c3"
+# Leading-zero priorities must parse as decimal, not octal (finding #6 follow-up).
+fresh_queue
+bash "$CLI" init >/dev/null
+id08="$(bash "$CLI" add --priority 08 "p08")" || fail "add --priority 08 must be accepted (decimal 8)"
+[[ -d "$WAI_QUEUE_DIR/pending/08-$id08" ]] || fail "p08 should use prefix 08-, dir missing"
+jq -e '.priority == 8' "$WAI_QUEUE_DIR/pending/08-$id08/meta.json" >/dev/null || fail "p08 meta .priority must be decimal 8"
+id010="$(bash "$CLI" add --priority 010 "p010")" || fail "add --priority 010 must be accepted (decimal 10)"
+[[ -d "$WAI_QUEUE_DIR/pending/10-$id010" ]] || fail "p010 should use prefix 10- (decimal), dir missing"
+jq -e '.priority == 10' "$WAI_QUEUE_DIR/pending/10-$id010/meta.json" >/dev/null || fail "p010 meta .priority must be decimal 10"
 log "Test 14: PASS"
 
 echo "$PREFIX PASS: all queue tests passed"
