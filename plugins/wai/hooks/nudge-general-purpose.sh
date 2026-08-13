@@ -19,12 +19,11 @@ subagent_type=$(printf '%s' "$payload" | jq -r '.tool_input.subagent_type // emp
 read -r -d '' message <<'EOF' || true
 general-purpose dispatched. wai ships narrower agents that usually fit better:
 
-- investigate + fix, full toolbelt, no plan needed -> wai:wai-implementer (freeform mode)
+- investigate + fix, full toolbelt, no plan needed -> wai:wai-implementer (freeform mode), one dispatch per finding when you have a list
 - understand how existing code works, file:line traces -> wai:codebase-analyzer
 - locate files -> the built-in Explore agent
 - review a diff -> wai:code-reviewer
 - external or current information with sources -> wai:web-search-researcher
-- a list of independent findings to fix -> the /fix-findings command
 - surgical 1-2 file mechanical edit -> wai:cavecrew-builder (no Bash, so it cannot build or test)
 
 general-purpose is still the right call when the task genuinely needs the full toolbelt across many phases. Proceeding either way.
