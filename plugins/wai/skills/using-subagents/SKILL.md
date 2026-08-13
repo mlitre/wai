@@ -1,6 +1,6 @@
 ---
 name: using-subagents
-description: Primer for dispatching subagents, how to craft focused prompts, pick the right model, avoid common mistakes, and verify what came back. Use whenever you're about to dispatch a Task/Agent subagent for any purpose. `/implement-plan` (DAG walker), `/research-codebase`, `/review-pr`, `/create-plan`, and `requesting-code-review` all build on this primer.
+description: Primer for dispatching subagents, how to craft focused prompts, pick the right model, avoid common mistakes, and verify what came back. Use whenever you're about to dispatch a Task/Agent subagent for any purpose. `/implement-plan` (DAG walker), `/fix-findings` (flat-list walker), and `/create-plan` all build on this primer.
 inspired-by: obra/superpowers/skills/dispatching-parallel-agents + obra/superpowers/skills/subagent-driven-development (MIT, Jesse Vincent)
 ---
 

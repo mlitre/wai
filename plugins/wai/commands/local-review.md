@@ -63,7 +63,7 @@ Echo back what you did, then suggest the V2 chain:
 > Set up worktree for `<USERNAME>/<BRANCH>` at `.claude/worktrees/review-<SHORT_NAME>`. Local branch `review/<USERNAME>/<BRANCH>` tracks it. Dependencies installed via `<command>`.
 >
 > Next:
->   1. `/review-pr <pr-number>`, multi-agent audit (code, tests, comments, errors, types, simplify).
+>   1. Dispatch `code-reviewer` on the diff, it self-dispatches the tests/comments/errors/types specialists.
 >   2. `/ds <base-commit>`, diffscape browser review of the diff vs base.
 >   3. Manual verdict via `gh pr review <pr-number> --approve | --comment | --request-changes`.
 >

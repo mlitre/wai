@@ -1,6 +1,6 @@
 ---
 name: to-spec
-description: Produce a spec for a feature/bug/refactor. Two interaction modes, interview (ask questions, build the spec collaboratively) or synthesize (compress existing conversation context into a spec). Default output: local file at `specs/<YYYY-MM-DD>-<slug>.md`. `--tracker` flag instead opens a PRD issue on the project tracker. Use when user says "spec this out", "write a PRD", "design this", or before `/create-plan`.
+description: Produce a spec for a feature/bug/refactor. Two interaction modes, interview (ask questions, build the spec collaboratively) or synthesize (compress existing conversation context into a spec). Output is a local file at `specs/<YYYY-MM-DD>-<slug>.md`. Use when user says "spec this out", "write a PRD", "design this", or before `/create-plan`.
 inspired-by:
   - obra/superpowers/skills/brainstorming
   - mattpocock/skills/engineering/to-prd
@@ -24,12 +24,11 @@ Every invocation opens with a single multiple-choice:
 
 ## Output target
 
-| Flag | Output | Hard-gate before code? |
-|---|---|---|
-| (default) | `specs/<YYYY-MM-DD>-<kebab-slug>.md` (local file, committed to git) | **yes**, do not invoke any implementation skill until the user approves the written spec |
-| `--tracker` | New PRD issue on the project tracker (label from `.claude/wai.json` → `labels.prd`) | soft, "PRD published, next: `/create-plan`" |
+The spec is a local file at `specs/<YYYY-MM-DD>-<kebab-slug>.md`, committed to git.
 
-Tracker mode reads `tracker` + `tracker_repo` + `labels.prd` from `.claude/wai.json`. If `/setup` hasn't run, abort with: "No `.claude/wai.json`. Run `/setup` first."
+**Hard gate before code.** Do not invoke any implementation skill until the user approves the written spec.
+
+wai does not publish specs to an issue tracker. If you want the spec in a tracker, paste it there yourself.
 
 ## Interview mode
 
@@ -61,7 +60,7 @@ Scale each section to its complexity, a few sentences for straightforward, up to
 
 ### 6. Write the spec
 
-Save to `specs/<YYYY-MM-DD>-<kebab-slug>.md` (or, with `--tracker`, publish as a tracker issue). Use the template below.
+Save to `specs/<YYYY-MM-DD>-<kebab-slug>.md`. Use the template below.
 
 ### 7. Spec self-review
 
@@ -90,7 +89,7 @@ Use when the conversation already contains enough context to write the spec with
 - Look for unresolved questions, if there are any, the conversation isn't ripe for synthesis. Switch to interview mode for those gaps.
 - Write the spec using the same template.
 - Run the same self-review.
-- In local-file mode, run the user review gate. In tracker mode, publish and hand off.
+- Run the user review gate before anything downstream starts.
 
 ## Spec template
 
@@ -121,7 +120,7 @@ What the spec proposes, from the user's perspective.
 - API contracts.
 - Specific interactions.
 
-(No file paths or code snippets, they go stale. Exception: a prototype-produced snippet that encodes a decision more precisely than prose can, state machine, reducer, schema, type shape, may be inlined. Trim to decision-rich parts, not a working demo.)
+(No file paths or code snippets, they go stale. Exception: a snippet that encodes a decision more precisely than prose can, state machine, reducer, schema, type shape, may be inlined. Trim to decision-rich parts, not a working demo.)
 
 ## Testing decisions
 
@@ -148,10 +147,10 @@ Anything else worth recording.
 - **YAGNI**, strip unnecessary features ruthlessly.
 - **Use the project's domain glossary** throughout. Match existing vocabulary.
 - **No open questions in the written spec.** Resolve mid-loop. Open questions = broken spec.
-- **No file paths or code snippets** in the spec, they rot fast. Carve-out: prototype-derived snippets that encode decisions.
+- **No file paths or code snippets** in the spec, they rot fast. Carve-out: snippets that encode a decision.
 - **Hard gate before code (local-file mode).** Do not invoke any implementation skill, write code, scaffold, or take any implementation action until the user approves the written spec. "This is too simple to need a spec" is the rationalization that wastes the most work.
-- **Tracker mode soft-gates.** Publishing the PRD is the gate; suggest `/create-plan` next.
+- **Suggest `/create-plan` next** once the user has approved the spec.
 
 ## Why this replaces `brainstorming` + `to-prd`
 
-`brainstorming` was interview-mode-only with a local-file hard gate. `to-prd` was synthesize-mode-only with a tracker default. They were the same skill split by output medium. Merged here with mode (`interview` | `synthesize`) and target (local file | `--tracker`) as orthogonal axes. One artifact, four combinations.
+`brainstorming` was interview-mode-only with a local-file hard gate. `to-prd` was synthesize-mode-only with a tracker default. They were the same skill split by output medium. Merged here with mode (`interview` | `synthesize`) as the only axis; the tracker target was cut after a usage audit found it had never once been used.

@@ -43,9 +43,8 @@ If the feedback can be applied from what's already in the plan + your existing c
 
 If the feedback requires understanding new code (new pattern, new constraint), spawn:
 
-- `codebase-locator`, find relevant files.
-- `codebase-analyzer`, understand how the area works now.
-- `codebase-pattern-finder`, similar implementations to model after.
+- `codebase-analyzer`, understand how the area works now, and find comparable implementations to model after.
+- Built-in `Explore`, when you need to locate files before you can analyse them.
 
 Read what they surface, fully. Wait for all subagents before synthesising.
 
