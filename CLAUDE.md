@@ -22,9 +22,8 @@ wai/
 ├── .claude-plugin/marketplace.json     # marketplace catalog
 ├── plugins/wai/
 │   ├── .claude-plugin/plugin.json      # plugin manifest
-│   ├── skills/<name>/SKILL.md          # description-activated skills
+│   ├── skills/<name>/SKILL.md          # every /name shortcut, model- or user-invoked
 │   ├── agents/<name>.md                # subagent definitions (flat, one file per agent)
-│   ├── commands/<name>.md              # slash commands
 │   ├── WORKFLOW.md                     # canonical workflow spine
 │   ├── INDEX.md                        # per-artifact catalog (linted by scripts/check-index.sh)
 │   ├── DIFFSCAPE.md                    # diffscape feature doc (engine exception)
@@ -44,10 +43,9 @@ wai/
 ## Conventions
 
 - **Skill frontmatter:** `name`, `description` (required); `allowed-tools`, `inspired-by` (recommended).
-- **Skills stay model-invocable.** Never set `disable-model-invocation: true` on a wai skill: it strips the skill from agent reach and silently breaks any agent preloading it via `skills:`.
+- **Invocation is a per-skill choice.** A skill another artifact preloads or invokes (`rigorous-pr-review`, `codebase-design`, `tdd`, `to-questionnaire`) must stay model-invocable, or the preload silently breaks. Otherwise set `disable-model-invocation: true` when an accidental autonomous fire would be expensive or hard to undo: `implement-plan`, `fix-findings`, `setup`, `local-review`, `resume-handoff`.
 - **Reference skills by bare name** (`rigorous-pr-review`), not scoped (`wai:rigorous-pr-review`), in `skills:` frontmatter and in artifact bodies. Agent dispatch is the exception, since `subagent_type` resolves scoped.
 - **Agent frontmatter:** `name`, `description`, `tools`; add `skills:` to preload a skill's full body into the agent at startup (do not list `Skill` in `tools` for this). A preloaded skill must stay model-invocable, or the preload is silently skipped.
-- **Command frontmatter:** `description`; optional `model`, `inspired-by`.
 - **Every ported artifact** carries an `inspired-by` line in its frontmatter pointing at the upstream path, AND a corresponding row in `SOURCES.md`. Both are required. Future-you uses these to diff-check upstream when looking for new ideas.
 - **Writing standard:** the `writing-for-agents` skill governs every document here. Read it before adding or reworking one.
 - **Voice:** mattpocock-style hybrid, direct, opinionated, conversational. Short paragraphs. Name files and line numbers. Avoid filler ("delve", "crucial", "robust", "nuanced"). Don't use ALL-CAPS guardrails unless a specific anti-pattern needs blocking.
@@ -56,7 +54,8 @@ wai/
 
 ## When adding a new artifact
 
-1. Pick a name in *your* taste, not the upstream's. Slash commands collide globally, check gstack and installed plugins first (e.g., gstack already owns `/ship`, `/qa`, `/review`, `/investigate`).
+1. Pick a name in *your* taste, not the upstream's. Slash names collide globally, check gstack and installed plugins first (e.g., gstack already owns `/ship`, `/qa`, `/review`, `/investigate`).
+   There is no `commands/` directory: the plugin system treats `commands/*.md` and `skills/<name>/SKILL.md` as one component type, and only the latter supports sibling reference files. The lint fails if `commands/` reappears.
 2. Create the file under the right directory with the required frontmatter.
 3. Add `inspired-by: <upstream-path>` to frontmatter if applicable.
 4. Add a row to `SOURCES.md` with link + a note on what changed in the rewrite.

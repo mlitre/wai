@@ -49,9 +49,8 @@ plugins/wai/
   WORKFLOW.md                       canonical workflow spine
   INDEX.md                          per-artifact catalog
   DIFFSCAPE.md                      diffscape feature reference (engine exception)
-  skills/<name>/SKILL.md            description-activated skills
+  skills/<name>/SKILL.md            every /name shortcut, model- or user-invoked
   agents/<name>.md                  subagent definitions
-  commands/<name>.md                slash commands
   hooks/                            general-purpose nudge + diffscape hooks
   server/, ui/, vendor/             diffscape runtime (engine exception)
 docs/adr/                           decision records for the plugin itself
@@ -61,9 +60,10 @@ docs/adr/                           decision records for the plugin itself
 
 | Type | Where | Frontmatter required |
 |---|---|---|
-| Skill | `plugins/wai/skills/<name>/SKILL.md` | `name`, `description` (+ optional `allowed-tools`, `inspired-by`) |
-| Agent | `plugins/wai/agents/<name>.md` | `name`, `description`, `tools` |
-| Command | `plugins/wai/commands/<name>.md` | `description` (+ optional `model`, `inspired-by`) |
+| Skill | `plugins/wai/skills/<name>/SKILL.md` | `name`, `description` (+ optional `allowed-tools`, `argument-hint`, `disable-model-invocation`, `inspired-by`) |
+| Agent | `plugins/wai/agents/<name>.md` | `name`, `description`, `tools` (+ optional `skills` to preload) |
+
+There is no `commands/` directory. Claude Code treats `commands/*.md` and `skills/<name>/SKILL.md` as one component type, both creating a `/name` shortcut, and only `skills/` supports sibling reference files.
 
 Add inspiration credit to `inspired-by` in frontmatter, a row in `SOURCES.md`, and a one-line entry in `plugins/wai/INDEX.md`. The `scripts/check-index.sh` lint flags artifacts present in the tree but missing from INDEX.
 

@@ -25,8 +25,12 @@ disk_skills=$(find "$plugin/skills" -mindepth 2 -maxdepth 2 -name SKILL.md \
 # catches an agent whose frontmatter is malformed.
 disk_agents=$(find "$plugin/agents" -mindepth 1 -maxdepth 1 -name '*.md' \
               -exec sh -c 'grep -q "^name:" "$1" && basename "$1" .md' _ {} \; | sort -u)
-disk_commands=$(find "$plugin/commands" -mindepth 1 -maxdepth 1 -name '*.md' \
-                -exec sh -c 'basename "$1" .md' _ {} \; | sort -u)
+# commands/ was folded into skills/: the plugin system treats both as skills,
+# and only skills/ supports sibling reference files. Fail if one reappears.
+if [[ -d "$plugin/commands" ]]; then
+  echo "STRAY commands/ directory: plugin commands live in skills/<name>/SKILL.md" >&2
+  exit 1
+fi
 
 # Names listed in INDEX.md sections
 section() {
@@ -40,7 +44,6 @@ section() {
 
 index_skills=$(section "## Skills")
 index_agents=$(section "## Agents")
-index_commands=$(section "## Commands")
 
 drift=0
 report() {
@@ -62,7 +65,6 @@ report() {
 
 report "Skills"   "$disk_skills"   "$index_skills"
 report "Agents"   "$disk_agents"   "$index_agents"
-report "Commands" "$disk_commands" "$index_commands"
 
 # Provenance. CLAUDE.md requires both halves for every ported artifact: an
 # inspired-by line in the frontmatter, and a row in SOURCES.md. Only local
@@ -73,7 +75,7 @@ sources="$repo_root/SOURCES.md"
 # Artifacts declaring an upstream, by name.
 ported=$(
   find "$plugin/skills" -mindepth 2 -maxdepth 2 -name SKILL.md \
-       -o -path "$plugin/agents/*.md" -o -path "$plugin/commands/*.md" \
+       -o -path "$plugin/agents/*.md" \
   | while read -r f; do
       # Frontmatter only: everything before the second '---'.
       if awk 'NR>1 && /^---$/{exit} NR>1' "$f" | grep -q '^inspired-by:'; then
@@ -108,7 +110,7 @@ if [[ -n "$missing_row" ]]; then
   drift=1
 fi
 
-all_disk=$(printf '%s\n%s\n%s\n' "$disk_skills" "$disk_agents" "$disk_commands" | sort -u)
+all_disk=$(printf '%s\n%s\n' "$disk_skills" "$disk_agents" | sort -u)
 orphan_row=$(comm -23 <(echo "$sources_rows") <(echo "$all_disk"))
 if [[ -n "$orphan_row" ]]; then
   echo "ORPHAN rows in SOURCES.md (row names no artifact on disk):"
@@ -117,7 +119,7 @@ if [[ -n "$orphan_row" ]]; then
 fi
 
 if (( drift == 0 )); then
-  echo "INDEX.md in sync with plugins/wai/{skills,agents,commands}/."
+  echo "INDEX.md in sync with plugins/wai/{skills,agents}/."
   echo "SOURCES.md provenance in sync ($(echo "$ported" | wc -l | tr -d ' ') ported artifacts)."
   exit 0
 fi

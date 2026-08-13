@@ -1,4 +1,6 @@
 ---
+name: resume-handoff
+disable-model-invocation: true
 description: Resume work from a handoff document, read it, verify the codebase state still matches, propose a plan, then start.
 inspired-by: humanlayer/.claude/commands/resume_handoff.md
 ---

@@ -1,5 +1,7 @@
 ---
 name: setup
+disable-model-invocation: true
+argument-hint: "[--update]"
 description: One-time per-repo setup for the wai workflow. Detects repo state, writes `.claude/wai.json` config, opt-in scaffolds `CONTEXT.md` and `docs/adr/`, writes a pointer block into `CLAUDE.local.md` and excludes wai personal files via `.git/info/exclude`. Re-run with `--update` to refresh the pointer and clear legacy blocks.
 ---
 
@@ -8,6 +10,18 @@ description: One-time per-repo setup for the wai workflow. Detects repo state, w
 Bootstrap a repo for the wai workflow. Idempotent, safe to re-run; `--update` refreshes the pointer only.
 
 > **INVARIANT, no code here.** This skill does not modify source files. It writes config and scaffolds optional docs only. See `plugins/wai/WORKFLOW.md`.
+
+## Arguments
+
+```
+/setup            # full bootstrap: prompts, then config + pointer + git exclude
+/setup --update   # refresh the pointer, clear legacy blocks, leave config alone
+```
+
+| Argument | Effect |
+|---|---|
+| (none) | Full bootstrap. State detection, prompting, atomic writes, the marker-comment pointer, the `.git/info/exclude` top-up. |
+| `--update` | Skip all prompts. Rewrite the pointer block between `<!-- wai-workflow-start -->` and `<!-- wai-workflow-end -->` in the project's `CLAUDE.local.md`, and remove any legacy marker block left in `CLAUDE.md`. Never touches `.claude/wai.json`. |
 
 ## What it produces
 

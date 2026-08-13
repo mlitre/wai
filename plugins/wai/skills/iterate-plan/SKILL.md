@@ -1,4 +1,5 @@
 ---
+name: iterate-plan
 description: Update an existing implementation plan with new feedback. Researches only if the change requires new technical understanding, then makes surgical edits.
 model: opus
 inspired-by: humanlayer/.claude/commands/iterate_plan_nt.md

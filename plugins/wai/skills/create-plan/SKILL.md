@@ -1,4 +1,5 @@
 ---
+name: create-plan
 description: Build a detailed implementation plan as a DAG of tasks (`T<n>` headings + `depends_on:` lines + checkbox steps). Parses cleanly into `/implement-plan` (DAG walk).
 model: opus
 inspired-by:

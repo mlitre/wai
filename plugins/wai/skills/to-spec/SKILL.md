@@ -1,5 +1,6 @@
 ---
 name: to-spec
+argument-hint: "[--interview|--synthesize]"
 description: Produce a spec for a feature/bug/refactor. Two interaction modes, interview (ask questions, build the spec collaboratively) or synthesize (compress existing conversation context into a spec). Output is a local file at `specs/<YYYY-MM-DD>-<slug>.md`. Use when user says "spec this out", "write a PRD", "design this", or before `/create-plan`.
 inspired-by:
   - obra/superpowers/skills/brainstorming
@@ -11,6 +12,16 @@ inspired-by:
 Turn ideas into specs. Output is a written spec the user can edit, share, or hand to `/create-plan`.
 
 > **INVARIANT, no code here.** This skill does not modify source files. Code changes happen only in `/implement-plan`. See `plugins/wai/WORKFLOW.md`.
+
+## Arguments
+
+```
+/to-spec                # ask interview|synthesize on the first turn
+/to-spec --interview    # force interview mode
+/to-spec --synthesize   # force synthesize mode, using the current conversation
+```
+
+Specs are written as local files under `specs/<YYYY-MM-DD>-<slug>.md`. wai does not publish to an issue tracker.
 
 ## Mode
 

@@ -1,4 +1,5 @@
 ---
+name: describe-pr
 description: Generate a PR description from the diff using the repo's PR template (or a default fallback). Writes to `.claude/pr-descriptions/<branch-slug>.md`, then offers to open the PR with `gh pr create`. NEVER pushes. Does NOT call `gh pr edit` without asking.
 inspired-by: |
   humanlayer/.claude/commands/describe_pr.md
