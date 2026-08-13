@@ -1,6 +1,6 @@
 # Smell baseline
 
-Disclosed reference for `code-reviewer`. Read it when reviewing a diff; it is the floor that applies even when a repo documents no standards of its own.
+Disclosed reference for [rigorous-pr-review](./SKILL.md), and through it for the `code-reviewer` agent. Read it when reviewing a diff; it is the floor that applies even when a repo documents no standards of its own.
 
 Twelve smells from Fowler's *Refactoring* (ch. 3), each written *what it is* then *how to fix*. They are leading words: twelve pretrained concepts that focus attention on a class of thing to look for, which is why they carry more weight per line than a prose reminder to "look for duplication".
 

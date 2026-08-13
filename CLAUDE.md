@@ -23,7 +23,7 @@ wai/
 ├── plugins/wai/
 │   ├── .claude-plugin/plugin.json      # plugin manifest
 │   ├── skills/<name>/SKILL.md          # description-activated skills
-│   ├── agents/<name>.md                # subagent definitions
+│   ├── agents/<name>.md                # subagent definitions (flat, one file per agent)
 │   ├── commands/<name>.md              # slash commands
 │   ├── WORKFLOW.md                     # canonical workflow spine
 │   ├── INDEX.md                        # per-artifact catalog (linted by scripts/check-index.sh)
@@ -38,14 +38,15 @@ wai/
 ├── reports/                            # dated usage-audit output (untracked)
 ├── CONTEXT.md                          # glossary
 ├── docs/adr/                           # decision records for the plugin itself
-├── archive/                            # superseded artifacts, kept for reference
 ├── README.md, SOURCES.md, LICENSE
 ```
 
 ## Conventions
 
 - **Skill frontmatter:** `name`, `description` (required); `allowed-tools`, `inspired-by` (recommended).
-- **Agent frontmatter:** `name`, `description`, `tools`.
+- **Skills stay model-invocable.** Never set `disable-model-invocation: true` on a wai skill: it strips the skill from agent reach and silently breaks any agent preloading it via `skills:`.
+- **Reference skills by bare name** (`rigorous-pr-review`), not scoped (`wai:rigorous-pr-review`), in `skills:` frontmatter and in artifact bodies. Agent dispatch is the exception, since `subagent_type` resolves scoped.
+- **Agent frontmatter:** `name`, `description`, `tools`; add `skills:` to preload a skill's full body into the agent at startup (do not list `Skill` in `tools` for this). A preloaded skill must stay model-invocable, or the preload is silently skipped.
 - **Command frontmatter:** `description`; optional `model`, `inspired-by`.
 - **Every ported artifact** carries an `inspired-by` line in its frontmatter pointing at the upstream path, AND a corresponding row in `SOURCES.md`. Both are required. Future-you uses these to diff-check upstream when looking for new ideas.
 - **Writing standard:** the `writing-for-agents` skill governs every document here. Read it before adding or reworking one.

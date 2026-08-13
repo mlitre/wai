@@ -55,7 +55,6 @@ plugins/wai/
   hooks/                            general-purpose nudge + diffscape hooks
   server/, ui/, vendor/             diffscape runtime (engine exception)
 docs/adr/                           decision records for the plugin itself
-archive/                            superseded artifacts, kept for reference
 ```
 
 ## Adding new content
