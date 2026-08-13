@@ -254,7 +254,7 @@ Edit settings, then run a Bash command Claude Code intercepts. If the hook misbe
 
 ## Pairs with
 
-- `conversation-analyzer`, mine the current session for behaviors worth hooking. Its output (event + pattern + suggested message) maps directly onto these `settings.json` entries.
+- `git-guardrails-claude-code`, the same `PreToolUse` shape applied to destructive git commands.
 - `hookify` plugin (separate install), DSL-driven rules; install the upstream plugin to get the `writing-hookify-rules` skill. Engine-dependent.
 
 ## Quick reference

@@ -1,5 +1,5 @@
 ---
-description: Build a detailed implementation plan as a DAG of tasks (`T<n>` headings + `depends_on:` lines + checkbox steps). Parses cleanly into `/implement-plan` (DAG walk), `to-issues` (mirror to tracker), and `/validate-plan` (criteria check).
+description: Build a detailed implementation plan as a DAG of tasks (`T<n>` headings + `depends_on:` lines + checkbox steps). Parses cleanly into `/implement-plan` (DAG walk).
 model: opus
 inspired-by:
   - humanlayer/.claude/commands/create_plan_nt.md
@@ -30,9 +30,8 @@ Wait.
 
 1. **Read everything mentioned, fully.** No `limit`/`offset`. Specs, tickets, research, JSON, related plans. Read them in main context before spawning anything, otherwise you can't direct subagents accurately.
 2. **Spawn parallel subagents** to map the relevant code:
-   - `codebase-locator`, files/tests/configs related to the task.
-   - `codebase-analyzer`, how the current implementation works in the area you'll touch.
-   - `codebase-pattern-finder`, similar features you can model after.
+   - `codebase-analyzer`, how the current implementation works in the area you'll touch, plus similar features you can model after.
+   - Built-in `Explore`, to locate the files/tests/configs in play when you don't already know where they are.
    See `using-subagents` for prompt-craft guidance, one focused, self-contained, output-specified prompt per area, dispatched concurrently in a single response.
 3. **Read what subagents surfaced.** Full reads. Cross-reference against the spec.
 4. **Synthesise**, what the spec says vs what the code actually shows. Note discrepancies, hidden constraints, real scope.
@@ -127,10 +126,6 @@ One paragraph. What we're implementing and why.
 - [ ] [UI / behavior observation the user has to verify]
 - [ ] [another]
 
-## Tracker (per-plan opt-in)
-
-`to-issues` does not auto-fire. Run `to-issues plans/<this-file>.md` if you want a tracker mirror.
-
 ---
 
 ## Tasks
@@ -176,13 +171,12 @@ T4  <name>          ← T1, T2
 
 ### Parse contract
 
-`/implement-plan`, `to-issues`, and `/validate-plan` all read this same shape. Hard rules so the parse stays trivial:
+`/implement-plan` reads this shape. Hard rules so the parse stays trivial:
 
 - **Task heading exactly**: `### T<n>, <title>` (note the em-dash, single space on each side).
 - **Immediately under the heading**: `depends_on: [T<n>, T<m>]` or `depends_on: []`. Plain text line, no code fence.
 - **Then checkbox steps**: `- [ ]` lines. Each step is one concrete action.
 - **Tasks live under a `## Tasks` heading** so the parser can scope the search.
-- **`issue: #N` line** (added by `to-issues` after publishing) sits between `depends_on:` and the first checkbox.
 
 If you deviate from the shape, the downstream tooling silently misses tasks. Don't.
 
@@ -215,5 +209,5 @@ Show the user the path and ask for feedback. Iterate. Each round may need fresh 
 ## Workflow position
 
 ```
-to-spec → /create-plan → to-issues (opt-in) → /implement-plan → /validate-plan → ...
+to-spec → /create-plan → /implement-plan → /ds → /describe-pr → ...
 ```

@@ -77,6 +77,5 @@ When you don't have a line reference, you're guessing. Stop and read more.
 
 ## What you don't do
 
-- Locate files at large, that's `codebase-locator`.
-- Show side-by-side pattern examples, that's `codebase-pattern-finder`.
+- Locate files at large, that's the built-in `Explore` agent.
 - Critique or suggest. If something looks broken, describe what the code does. The caller decides if it's a bug.

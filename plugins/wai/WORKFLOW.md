@@ -2,7 +2,7 @@
 
 Canonical engineering workflow shipped with the wai plugin. Source of truth for what runs in what order, what each step produces, and which side paths exist.
 
-`/setup` reads this file and injects the spine summary into the project `CLAUDE.md` between marker comments:
+`/setup` does **not** copy this spine into project memory. It writes a three-line pointer to `CLAUDE.local.md` between marker comments:
 
 ```
 <!-- wai-workflow-start -->
@@ -10,74 +10,95 @@ Canonical engineering workflow shipped with the wai plugin. Source of truth for 
 <!-- wai-workflow-end -->
 ```
 
-Run `/setup --update` after editing this file to push the new spine into project `CLAUDE.md`.
+The pointer names no commands, so editing this file can never leave a repo's memory stale. See [docs/adr/0004](../../docs/adr/0004-spine-is-a-pointer-in-claude-local-md.md).
 
 ## Spine
 
 ```
 /setup                  one-time per repo, writes .claude/wai.json
   ↓
-/research-codebase      map an unfamiliar codebase (read-only)
-  ↓
-to-spec                 local file by default; --tracker writes a PRD issue
-  ↓
 /create-plan            emits a DAG (T<n> + depends_on)
   ↓
-to-issues               per-plan opt-in, mirrors DAG to GH Issues
-  ↓
-/implement-plan         subagent-driven, parallel up to wai.json parallel_cap,
+/implement-plan         DAG walk, parallel up to wai.json parallel_cap,
                         TDD always, per-task spec + quality review,
                         retry-once → quarantine on failure
   ↓
-/validate-plan          runs the plan's automated success criteria
-  ↓
-/review-pr              multi-agent audit
-  ↓
 /ds                     diffscape browser review
   ↓
-/describe-pr            writes .claude/pr-descriptions/<branch-slug>.md
-                        (no push, no gh pr edit)
-  ↓
-git push + gh pr create (MANUAL)
+/describe-pr            writes .claude/pr-descriptions/<branch-slug>.md,
+                        then offers to run `gh pr create` (never pushes)
   ↓
 cleanup-worktrees       after merge; recommended cadence: weekly or post-merge
 ```
 
-## INVARIANT, code only in `/implement-plan`
+Two other entry points feed the same implementation step:
 
-Every step before `/implement-plan` (`/research-codebase`, `to-spec`, `/create-plan`, `/iterate-plan`, `/diagnose`) investigates, designs, plans, or decomposes. None of them write source files.
+| Entry | Produces | Feeds |
+|---|---|---|
+| `/diagnose` | `plans/<date>-diagnose-<slug>.md` | `/create-plan`, or `cavecrew-builder` if the fix is trivial |
+| `to-spec` | `specs/<slug>.md` (local file only) | `/create-plan` |
 
-The two carve-outs:
+## Two implementation drivers
 
-- `prototype`, throwaway exploration code in a `prototypes/` dir; deleted before `to-spec`.
-- `cavecrew-builder`, 1-2 file mechanical edits triggered by user request (typos, renames). Bypasses the planning chain by design.
+`/implement-plan` and `/fix-findings` are the same fan-out machine with different parsers. Both dispatch `wai-implementer` → `wai-spec-reviewer` → `code-reviewer` per item, parallel up to `parallel_cap`, retry-once then quarantine.
+
+| Command | Input | Ordering |
+|---|---|---|
+| `/implement-plan` | DAG: `### T<n>` headings + `depends_on:` lines | Topological, respects dependencies |
+| `/fix-findings` | Flat numbered list: handoff doc, review output, diagnosis report | No dependencies, fully parallel |
+
+Use `/fix-findings` when you have a list of independent findings and no plan. It exists because that shape was previously handled by ad-hoc `general-purpose` dispatch. See [docs/adr/0001](../../docs/adr/0001-wai-implementer-accepts-freeform-tasks.md).
+
+## INVARIANT, code lands in three places
+
+Every step before implementation (`to-spec`, `/create-plan`, `/iterate-plan`, `/diagnose`) investigates, designs, plans, or decomposes. None of them write source files.
+
+Source files are written by exactly three things:
+
+- `/implement-plan` and `/fix-findings`, via the `wai-implementer` agent.
+- `wai-implementer` dispatched directly in freeform mode, for one-off "investigate and fix this" work.
+- `cavecrew-builder`, 1-2 file mechanical edits (typos, renames). No `Bash`, so it cannot build or test.
+
+## Outward actions
+
+wai takes one outward-facing action, and only behind an explicit per-invocation confirmation: `/describe-pr` may run `gh pr create --body-file`. It never runs `git push`; if the branch is not on the remote it stops and says so. See [docs/adr/0003](../../docs/adr/0003-describe-pr-creates-prs-but-never-pushes.md).
 
 ## Side paths
 
 | Path | When |
 |---|---|
-| `prototype` | Pre-`to-spec` exploration. Logic mode = terminal app; UI mode = multi-variant route. Output is throwaway. |
-| `/diagnose` | Bug intake. Default mode takes a bug description; `--from-ci <pr>` ingests GitHub Actions logs. Writes `plans/<date>-diagnose-<slug>.md`. Trivial fix → `cavecrew-builder`. Non-trivial → `/create-plan` against the diagnosis. |
-| `handoff` ↔ `/resume-handoff` | Compact session into a handoff doc; the next session reads, verifies, plans, resumes. |
-| `/local-review <user>:<branch>` | Set up a worktree from a colleague's branch. Then `/review-pr <pr#>` → `/ds <base>` → manual `gh pr review`. |
-| `pr-triage` | Status digest of authored + review-assigned PRs. |
-| `issue-triage` | Issue tracker state-machine triage. |
-| `improve-codebase-architecture` | Independent architectural review. HTML report of deepening candidates. |
-| `zoom-out` | Higher-level map of an unfamiliar area. Auto-fires on "give me a map" / "I don't know this area". |
+| `grill-me` | Stress-test a plan or design. Engages docs mode when `CONTEXT.md` exists: challenges the glossary, updates it inline, offers ADRs when `docs/adr/` exists. |
+| `handoff` ↔ `/resume-handoff` | Compact session into a handoff doc; the next session reads, verifies, plans, resumes. A handoff's numbered findings feed `/fix-findings`. |
+| `/iterate-plan` | Surgical edits to an existing plan given new feedback. |
+| `/local-review <user>:<branch>` | Set up a worktree from a colleague's branch. Then `code-reviewer` → `/ds <base>` → manual `gh pr review`. |
+| `pr-triage` | Status digest of authored + review-assigned PRs, with a per-PR "action on me?" verdict. |
+| `improve-codebase-architecture` | Independent architectural review, informed by `CONTEXT.md` and `docs/adr/`. HTML report of deepening candidates. |
+| `create-standards-checker` / `/spec-registry` | Generate a domain-specialised compliance agent; maintain `.claude/compliance-specs.json`. |
+| `commit` | Conventional Commits for the session's changes. |
 
 ## Subagent surface
 
-Three agents do the work for `/implement-plan`:
+`code-reviewer` is the single review surface. It runs as the quality gate inside `/implement-plan` and `/fix-findings`, and stands alone for ad-hoc review. It self-dispatches `silent-failure-hunter` / `pr-test-analyzer` / `comment-analyzer` / `type-design-analyzer` per heuristic.
 
-- `wai-implementer`, implements one DAG task. TDD Iron Law as invariant.
-- `wai-spec-reviewer`, checks implementer output against task spec. Pass/fail only.
-- `code-reviewer`, runs after spec-reviewer passes. Checks duplication, error handling, naming, CLAUDE.md compliance. Self-dispatches `silent-failure-hunter` / `pr-test-analyzer` / `comment-analyzer` / `type-design-analyzer` per heuristic for deeper coverage.
+Implementation: `wai-implementer` (DAG task or freeform), `wai-spec-reviewer` (pass/fail against spec), `cavecrew-builder` (surgical edits).
 
-Override locally by dropping a same-named agent in `.claude/agents/`, Claude Code's plugin system gives local agents precedence.
+Investigation: `codebase-analyzer` (how code works, `file:line` traces), `web-search-researcher` (sourced external research).
 
-`requesting-code-review` skill stays for non-plan-context reviews (ad-hoc gut checks, pre-refactor baseline). It dispatches the standalone `code-reviewer` agent.
+Override any of them locally by dropping a same-named agent in `.claude/agents/`; Claude Code gives local agents precedence.
 
-`/review-pr` orchestrates 6 review-toolkit agents on a full PR diff: code-reviewer, pr-test-analyzer, comment-analyzer, silent-failure-hunter, type-design-analyzer, code-simplifier.
+A `PreToolUse` hook nudges toward this roster when `general-purpose` is dispatched. It warns and allows; it does not block. See [Hooks](#hooks) below and [docs/adr/0002](../../docs/adr/0002-nudge-not-block-on-general-purpose.md).
+
+## Hooks
+
+Workflow-level hooks the plugin registers in `hooks/hooks.json`. Diffscape's three hooks are documented separately in [DIFFSCAPE.md](./DIFFSCAPE.md).
+
+| Piece | Trigger | Role |
+|---|---|---|
+| `PreToolUse` hook, `hooks/nudge-general-purpose.sh` | Before each `Task` / `Agent` call | Reads `tool_input.subagent_type`; when it is `general-purpose`, prints the wai roster as a `systemMessage` and allows the call |
+
+The nudge is advisory by design. It always exits 0, never exits 2, and fails open: no `jq`, empty stdin, or unparseable payload all exit 0 with no output, so a bad payload can never stall an agent dispatch. A hard deny was rejected in [docs/adr/0002](../../docs/adr/0002-nudge-not-block-on-general-purpose.md), the work would just move into the main thread, which costs more context than the delegation it replaced.
+
+The message maps the common shapes onto `wai-implementer` (freeform), `codebase-analyzer`, the built-in `Explore`, `code-reviewer`, `web-search-researcher`, `/fix-findings`, and `cavecrew-builder`, and says plainly that `general-purpose` is still right when the task needs the full toolbelt across many phases.
 
 ## Configuration
 
@@ -85,25 +106,26 @@ Per-repo config lives in `.claude/wai.json`. Shape:
 
 ```json
 {
-  "tracker": "github",
-  "tracker_repo": "<owner>/<repo>",
-  "labels": {
-    "prd": "type:prd",
-    "task": "type:task"
-  },
   "context_md": "docs/CONTEXT.md",
   "adr_dir": "docs/adr",
   "parallel_cap": 3
 }
 ```
 
-Skills that read this config: `to-spec`, `to-issues`, `issue-triage`, `/create-plan`, `/implement-plan`, `zoom-out`, `improve-codebase-architecture`, `grill-me`.
+Actual consumers, verified against the tree:
+
+| Field | Read by |
+|---|---|
+| `parallel_cap` | `/implement-plan`, `/fix-findings` |
+| `context_md` | `setup` (writes), `grill-me` and `improve-codebase-architecture` (docs mode) |
+| `adr_dir` | `setup` (writes), `grill-me` (ADR offers) |
+
+There are no tracker fields. wai does not mirror plans to an issue tracker.
 
 ## Cadence
 
 | Job | When |
 |---|---|
-| `/setup` | once per repo on adoption; `/setup --update` whenever this WORKFLOW.md changes |
+| `/setup` | once per repo on adoption; `/setup --update` whenever this file's pointer format changes |
 | `cleanup-worktrees` | weekly or after a PR merges |
-| `claude-md` audit | quarterly or when CLAUDE.md feels stale |
 | `pr-triage` | start of each work block |
