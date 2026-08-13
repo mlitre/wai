@@ -41,6 +41,7 @@ The bar is not "does this work?" It is "is this the simplest, clearest, most mai
 - **Prefer canonical helpers, framework paths, and local idioms** over new bespoke machinery. Flag new abstractions that are identity wrappers, pass-through layers, or generic mechanisms with no current pressure behind them.
 - **Challenge non-atomic orchestration.** When the diff coordinates multiple steps, resources, tasks, state writes, or external calls, look for inconsistent intermediate states, partial failure, cancellation, retry, and rollback behavior.
 - **Be skeptical of "temporary" compatibility paths**, duplicated old/new flows, feature switches, and dual write/read logic. They need ownership, expiry, tests, and a migration story.
+- **Critique test coverage in proportion to risk.** For a small behavior-preserving refactor it is fine to say the existing tests look sufficient, when the evidence supports that. Be stricter for protocol logic, state machines, parsing, persistence, migrations, concurrency, security, authorization, public APIs, and cross-module behavior. Ask whether tests cover the behavior callers depend on, not just the happy path or the implementation shape.
 - **Stay in scope.** Do not report unrelated cleanup unless the diff worsens it, depends on it, or makes it newly risky.
 
 Review the changed behavior, changed structure, and changed tests. Tie findings to the diff, but read surrounding code and callers when you need them to judge impact.
@@ -104,7 +105,7 @@ Strengths:
 Before forming your own findings, scan the diff for triggers and dispatch the matching specialists via the `Task` tool. Triggers:
 
 - `silent-failure-hunter`, diff contains `try ... catch`, `except`, `Result`, `?.`, or empty error branches.
-- `pr-test-analyzer`, diff touches `*.test.*`, `*.spec.*`, `__tests__/`, or adds new public functions without tests.
+- `pr-test-analyzer`, diff touches `*.test.*`, `*.spec.*`, `__tests__/`, or adds new public functions without tests. **Also dispatch it** when the risk-proportional test rule in `## Standard` flags the change as more than local and mechanical, even if no test file was touched. A protocol or state-machine change that ships zero test churn is the case this exists for, and the other triggers all miss it.
 - `comment-analyzer`, diff adds or modifies 5+ comment lines or any docstring block.
 - `type-design-analyzer`, diff introduces a new `class`, `interface`, `type`, `struct`, or `dataclass`.
 
