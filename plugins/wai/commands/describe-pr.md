@@ -1,5 +1,5 @@
 ---
-description: Generate a PR description from the diff using the repo's PR template (or a default fallback). Writes to `.claude/pr-descriptions/<branch-slug>.md`. Does NOT push, does NOT call `gh pr edit`. Final step prints a manual checklist.
+description: Generate a PR description from the diff using the repo's PR template (or a default fallback). Writes to `.claude/pr-descriptions/<branch-slug>.md`, then offers to open the PR with `gh pr create`. NEVER pushes. Does NOT call `gh pr edit` without asking.
 inspired-by: |
   humanlayer/.claude/commands/describe_pr.md
   humanlayer/.claude/commands/describe_pr_nt.md
@@ -8,17 +8,19 @@ inspired-by: |
 
 # Describe PR
 
-You produce a PR description from the diff, ground it in evidence, write it to disk. The user pushes and opens the PR manually.
+You produce a PR description from the diff, ground it in evidence, write it to disk, then offer to open the PR.
 
-> **INVARIANT, no code here.** This command does not modify source files. It writes the description file. The user pushes the branch and runs `gh pr create` themselves. See `plugins/wai/WORKFLOW.md`.
+> **INVARIANT, no code here.** This command does not modify source files.
+>
+> **INVARIANT, never push.** `git push` is the user's, always. This command may run `gh pr create` after an explicit confirmation, and nothing else outward-facing. See [docs/adr/0003](../../../docs/adr/0003-describe-pr-creates-prs-but-never-pushes.md).
 
 ## Workflow position
 
 ```
-... → /validate-plan → /review-pr → /ds → /describe-pr → manual push + gh pr create
+... → /implement-plan → /ds → /describe-pr → (confirm) gh pr create
 ```
 
-The user has the final read on the description before it goes public. That's why this command stops at the file.
+The user has the final read on the description before it goes public. That's why the file is written first and the PR is a separate, confirmed step.
 
 ## Identify the branch + diff base
 
@@ -108,27 +110,46 @@ EOF
 mv "${OUT_PATH}.tmp" "$OUT_PATH"
 ```
 
-## Final report, manual checklist
+## Offer to open the PR
 
-Print the absolute path and the next steps for the user:
+Print the path first, so the user can read the description before deciding:
 
 ```
 PR description written to:
   <absolute-path-to-.claude/pr-descriptions/SLUG.md>
-
-Next (manual):
-  git push -u origin <branch>
-  gh pr create --body-file <relative-path>
-
-To update the description on an existing PR:
-  gh pr edit <number> --body-file <relative-path>
 ```
 
-Do not run `gh pr edit`. Do not push. Do not open the PR. Those are the user's call.
+Then check the branch is on the remote:
 
-## Why file-only
+```bash
+git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null
+```
+
+**If there is no upstream, stop.** Print and do nothing further:
+
+```
+Branch <branch> is not on the remote. Push it yourself, then re-run:
+  git push -u origin <branch>
+```
+
+Never run `git push`, not even with confirmation. It is outside this command entirely.
+
+**If the branch is pushed**, check for an existing PR with `gh pr view --json number` and offer exactly one action:
+
+- **No PR exists**, ask: *"Open the PR now with this description?"* On an explicit yes, run:
+  ```bash
+  gh pr create --body-file "$OUT_PATH" --title "<generated title>"
+  ```
+- **A PR already exists**, ask: *"Update PR #N's description?"* On an explicit yes, run:
+  ```bash
+  gh pr edit <number> --body-file "$OUT_PATH"
+  ```
+
+Ask once. Silence, ambiguity, or anything short of a clear yes means do nothing and print the command for the user to run. Never chain both actions, never re-ask after a no.
+
+## Why the file comes first
 
 - Reviewing a PR description before it goes public is friction-cheap; reverting one after is not.
-- The user may want to edit the file before pushing, easier with the description on disk.
+- The user may want to edit the file before the PR opens, easier with the description on disk.
 - Re-runs are idempotent (write to the same path).
-- Removes a class of automation accidents (pushing the wrong description to the wrong PR).
+- The confirmation is per-invocation, so the outward action can never happen as a side effect of generating a description.
