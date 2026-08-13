@@ -1,6 +1,6 @@
 ---
 name: describe-pr
-description: Generate a PR description from the diff using the repo's PR template (or a default fallback). Writes to `.claude/pr-descriptions/<branch-slug>.md`, then offers to open the PR with `gh pr create`. NEVER pushes. Does NOT call `gh pr edit` without asking.
+description: Generate a PR description from the diff using the repo's PR template (or a default fallback). Writes to `.claude/pr-descriptions/<branch-slug>.md`, then offers to open the PR with `gh pr create`, but only when a user is present to confirm. NEVER pushes. Does NOT call `gh pr edit` without asking.
 inspired-by: |
   humanlayer/.claude/commands/describe_pr.md
   humanlayer/.claude/commands/describe_pr_nt.md
@@ -135,7 +135,16 @@ Branch <branch> is not on the remote. Push it yourself, then re-run:
 
 Never run `git push`, not even with confirmation. It is outside this command entirely.
 
-**If the branch is pushed**, check for an existing PR with `gh pr view --json number` and offer exactly one action:
+**Who may answer the confirmation.** `gh pr create` and `gh pr edit` are outward-facing: they publish to GitHub. Only the user can approve them, and only in the turn where they are asked. If this skill was invoked by another agent, or in any context with no user turn to answer, print the command and stop:
+
+```
+PR not opened. Run this yourself:
+  gh pr create --body-file "<OUT_PATH>" --title "<generated title>"
+```
+
+A calling agent's agreement is not the user's. Narrows [ADR-0003](../../../docs/adr/0003-describe-pr-creates-prs-but-never-pushes.md), which set the per-invocation confirmation back when only a human could invoke this.
+
+**If the branch is pushed and a user is present**, check for an existing PR with `gh pr view --json number` and offer exactly one action:
 
 - **No PR exists**, ask: *"Open the PR now with this description?"* On an explicit yes, run:
   ```bash
@@ -153,4 +162,4 @@ Ask once. Silence, ambiguity, or anything short of a clear yes means do nothing 
 - Reviewing a PR description before it goes public is friction-cheap; reverting one after is not.
 - The user may want to edit the file before the PR opens, easier with the description on disk.
 - Re-runs are idempotent (write to the same path).
-- The confirmation is per-invocation, so the outward action can never happen as a side effect of generating a description.
+- The confirmation is per-invocation *and* per-user-turn, so the outward action can never happen as a side effect of generating a description, or as a side effect of an agent deciding on the user's behalf.

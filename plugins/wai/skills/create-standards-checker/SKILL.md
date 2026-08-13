@@ -1,12 +1,6 @@
 ---
 name: create-standards-checker
-description: |
-  Use this skill to generate a domain-specialized standards-compliance-checker agent for a repo. You name the domain (EV charging, payments, internal protocols, HTTP, OAuth, anything with normative spec docs) and seed the spec registry with aliases → paths; the skill writes a `.claude/agents/<domain>-standards-compliance-checker.md` baked with the right examples + auto-trigger language + edition gotchas. Generated agents share one method (extract normatives → grep → classify ✓ / ⚠ / ✗ / - with quotes + `file:line`) but each has rich domain framing so auto-trigger fires on domain-specific user prompts.
-
-  Use when:
-  - User says "I want a compliance checker for OCPP" / "standards auditor for our internal RFCs" / "audit code against our design docs"
-  - User says "generate a spec-compliance agent" / "make a standards checker"
-  - User mentions auditing code against a written spec and the repo doesn't yet have a specialized agent
+description: Generate a domain-specialized standards-compliance-checker agent for this repo and seed its spec registry. Use when the user wants a compliance checker, standards auditor, or spec-compliance agent for a domain (EV charging, payments, HTTP, OAuth, internal RFCs), or wants code audited against normative spec documents and the repo has no specialized agent yet.
 allowed-tools: Read, Write, Edit, Bash
 inspired-by: ~/.claude/agents/standards-compliance-checker.md
 ---

@@ -1,6 +1,6 @@
 ---
 name: cleanup-worktrees
-description: Remove git worktrees whose branches have already been merged into the default branch via a closed/merged GitHub pull request. Walks every worktree under the current repo, looks up each branch's merged PR with `gh`, surfaces uncommitted changes, unpushed commits, and untracked planning/spec docs, then asks the user before deleting anything. Optionally archives untracked Markdown notes into the main worktree and offers to delete the now-orphan local branch after the worktree is gone. Use this whenever the user asks to "clean up worktrees", "remove merged worktrees", "prune worktrees", "delete worktrees for merged PRs", "tidy worktrees", "garbage collect worktrees", "which worktrees can I delete", or any variation where they want to know what's safe to remove after PRs land. Strongly prefer this skill over hand-rolling `git worktree list` + ad-hoc `gh pr list` calls when the user wants a per-worktree action breakdown.
+description: Remove git worktrees whose branches already merged via a closed GitHub PR, surfacing uncommitted changes, unpushed commits, and untracked notes before deleting anything. Use when the user asks to clean up or prune worktrees, or which are safe to remove after PRs land. Prefer it over hand-rolled `git worktree list` plus `gh pr list`.
 ---
 
 # cleanup-worktrees

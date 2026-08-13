@@ -1,6 +1,6 @@
 ---
 name: pr-triage
-description: Summarize the user's open GitHub PRs in a single action-oriented table, authored PRs plus PRs where they are both a requested reviewer AND an assignee. Shows draft state, review decision, merge state, CI rollup, and a per-PR "Action on me?" verdict (fix CI, rebase, address feedback, ready to merge, re-review, or waiting on others). Use this whenever the user asks about their PRs, what's on their plate, what they need to look at, what they still owe reviewers, what's blocked, what's waiting on review, what reviews they owe, "what's my PR queue", "PRs I need to merge", "what's the status of my open PRs", "anything ready to land", "what reviews are assigned to me", or any variation of "give me a status summary of my pull requests / reviews". Strongly prefer this skill over hand-rolling gh commands when the user wants a per-PR action breakdown across authored and review-assigned PRs.
+description: Single action-oriented table of the user's open GitHub PRs, authored plus review-assigned, with a per-PR "action on me?" verdict. Use when the user asks about their PR queue, what is blocked, what is ready to land, or what reviews they owe. Prefer it over hand-rolled `gh` commands.
 ---
 
 # PR triage

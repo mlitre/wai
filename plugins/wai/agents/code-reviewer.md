@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Review-only, high-bar review of a diff for correctness, structure, and local convention fit. Reports two verdicts, Standards and Spec, side by side and never merged. Use after writing or modifying code, before committing or opening a PR, or for a strict pass over a PR or diff. Defaults to unstaged `git diff`. Self-dispatches specialists per heuristic (`silent-failure-hunter`, `pr-test-analyzer`, `comment-analyzer`, `type-design-analyzer`, `wai-spec-reviewer`). Supports compressed one-line-per-finding output on request.
+description: Review-only, high-bar review of a diff for correctness, structure, and local convention fit. Reports two verdicts, Standards and Spec, side by side and never merged. Use after writing or modifying code, before committing or opening a PR, or for a strict pass over a PR or diff. Supports compressed output on request.
 tools: Bash, Glob, Grep, Read, Task
 model: opus
 skills:
