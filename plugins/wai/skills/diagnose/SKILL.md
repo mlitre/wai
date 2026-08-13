@@ -1,7 +1,7 @@
 ---
 name: diagnose
 argument-hint: "[--from-ci <pr-number-or-url>] <bug-description-or-empty>"
-description: Disciplined diagnosis loop for hard bugs and performance regressions. Takes a bug description, or `--from-ci <pr>` to ingest a PR's failing GitHub Actions logs. Output is a Diagnosis Report, root cause + minimal repro + proposed fix sketch. Does NOT edit code. Trivial fixes hand off to `cavecrew-builder`; non-trivial fixes hand off to `/create-plan`. Use when the user says "diagnose this" / "debug this", reports a bug, says something is broken/throwing/failing, or describes a performance regression.
+description: Disciplined diagnosis loop for hard bugs and performance regressions. Output is a Diagnosis Report; edits no code. Takes a bug description, or `--from-ci <pr>` to ingest a PR's failing GitHub Actions logs. Use when the user reports a bug, says something is broken, throwing, or failing, or describes a performance regression.
 allowed-tools:
   - Bash
   - Read

@@ -9,3 +9,7 @@ Printing a copy-pasteable command was the more conservative option and was rejec
 ## Consequences
 
 This is a deliberate, narrow break in the rule that wai takes no outward-facing action. The split is between the two commands, not between confirmed and unconfirmed: `gh pr create` is offered behind a per-invocation confirmation, and `git push` remains outside the skill entirely because the global git policy requires one-off authorization for it. A future reader should not read this ADR as license to let wai push.
+
+## Narrowed 2026-08-13
+
+`describe-pr` became a model-invocable skill when `commands/` was folded into `skills/`, so "an explicit per-invocation confirmation" no longer implies a human answered it: a calling agent can now be the thing that confirms. The confirmation is therefore per-invocation **and** per-user-turn. With no user turn to answer, the skill prints the `gh pr create` command and stops. The file write is unaffected, and the never-push rule is unchanged.

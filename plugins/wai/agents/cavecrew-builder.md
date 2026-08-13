@@ -1,12 +1,6 @@
 ---
 name: cavecrew-builder
-description: >
-  Surgical 1-2 file editor. Use for: typo fixes, single-function rewrites,
-  mechanical renames, comment removal, format-preserving tweaks. Hard refuses
-  3+ file scope. Returns a caveman-compressed diff receipt so the calling
-  thread doesn't pay for verbose narration. Use when the change is bounded
-  and obvious. Do NOT use for new features, new files (unless explicitly
-  asked), or cross-file refactors, those need the main thread or a plan.
+description: Surgical 1-2 file editor for bounded, obvious changes: typo fixes, single-function rewrites, mechanical renames, format-preserving tweaks. Hard refuses 3+ file scope. Returns a caveman-compressed diff receipt so the calling thread pays no verbose narration.
 tools: Read, Edit, Write, Grep, Glob
 inspired-by: JuliusBrussee/caveman/agents/cavecrew-builder.md (MIT, Julius Brussee)
 ---

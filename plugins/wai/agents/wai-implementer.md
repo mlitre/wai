@@ -1,6 +1,6 @@
 ---
 name: wai-implementer
-description: Writes and fixes code, with tests. Two input modes. Freeform, any ad-hoc "investigate this and fix it" task, a bug report, a review finding, a failing test, a small feature, no plan required; the agent investigates first, then implements. DAG, a single `T<n>` task from a wai plan with checkbox steps. Use this instead of `general-purpose` for anything that edits source files. TDD invariant baked in, no production code without a failing test first. Returns file-by-file diff summary + test command output. Dispatched by `/implement-plan`, `/fix-findings`, or directly.
+description: Writes and fixes code, with tests. Two input modes: freeform ("investigate this and fix it", a bug report, a review finding, a failing test) or a single `T<n>` task from a wai plan. Use instead of `general-purpose` for anything that edits source files. TDD invariant: no production code without a failing test first.
 tools: Bash, Read, Edit, Write, Grep, Glob
 ---
 

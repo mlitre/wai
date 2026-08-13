@@ -1,6 +1,6 @@
 ---
 name: commit
-description: Commit the session's changes, survey, group, write tight Conventional Commits messages, then execute. Interactive by default (shows plan, waits for confirmation); non-interactive when running in CI / autonomous / agent-launched contexts. Always-on Conventional Commits style (`<type>(<scope>): <summary>`, ≤50 char subject, body only when "why" isn't obvious, no AI attribution). Use when the user says "commit", "commit these changes", "save my work", "wrap this up", "make a commit", "write a commit", "commit message", "generate commit", or any variation asking to land the current diff or produce a commit message. Pass `--message-only` (or say "just the message") to output the formatted message in a code block without staging or committing.
+description: Commit the session's changes as Conventional Commits. Use when the user says commit, save my work, or asks for a commit message. Pass `--message-only` to print the message without staging or committing.
 inspired-by: humanlayer/.claude/commands/commit.md + humanlayer/.claude/commands/ci_commit.md + JuliusBrussee/caveman/skills/caveman-commit (MIT, Julius Brussee)
 ---
 

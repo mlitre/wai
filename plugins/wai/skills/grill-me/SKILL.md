@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Sharpens fuzzy language, stress-tests with concrete scenarios, and cross-references the codebase. When the repo has a `CONTEXT.md` (or `CONTEXT-MAP.md`) the skill also challenges the user against the existing glossary, updates `CONTEXT.md` inline as terms resolve, and offers ADRs at hard-to-reverse decision points (only when `docs/adr/` already exists, no lazy directory creation). Use when the user wants to stress-test a plan, get grilled on their design, challenge a proposal, or mentions "grill me", "interview me", "stress-test this".
+description: Interview the user relentlessly about a plan or design until every branch of the decision tree is resolved, one question at a time. Challenges the repo's glossary and offers ADRs when `CONTEXT.md` and `docs/adr/` exist. Use when the user wants a plan or design stress-tested, or says grill me, interview me, or challenge this.
 inspired-by: mattpocock/skills/grill-me + mattpocock/skills/engineering/grill-with-docs
 ---
 

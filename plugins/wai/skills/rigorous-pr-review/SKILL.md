@@ -1,6 +1,6 @@
 ---
 name: rigorous-pr-review
-description: The review standard. Read-only, high-bar pass over a PR or diff for correctness, maintainability, structure, test strategy, and local convention fit in C++, Rust, Python, or mixed-language changes. Use when the user asks for a strict or rigorous review, a quality pass over a diff or PR, or invokes /rigorous-pr-review. Preloaded by the `code-reviewer` agent, which applies the same standard in a subagent.
+description: The review standard: read-only, high-bar pass over a PR or diff for correctness, maintainability, structure, and test strategy. Use when the user asks for a strict or rigorous review, or a quality pass over a diff. Preloaded by the `code-reviewer` agent.
 allowed-tools: Bash, Read, Grep, Glob, Task
 inspired-by:
   - own rigorous-pr-review skill, after cursor/plugins cursor-team-kit/skills/thermo-nuclear-code-quality-review
