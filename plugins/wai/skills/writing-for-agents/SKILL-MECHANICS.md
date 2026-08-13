@@ -51,7 +51,7 @@ Name the triggers, and stop there. Hype ("ALWAYS USE THIS!!") is a no-op the mod
 
 When user-invoked skills multiply past what you can remember, that piled-up cognitive load is cured by a **router skill**: one user-invoked skill naming the others and when to reach for each, so the human remembers one instead of many. It can only hint, never fire them, since user-invoked skills have no description and nothing but the human can reach them.
 
-In wai the human-facing router is `INDEX.md`, not a skill.
+In wai the human-facing router is `INDEX.md`, not a skill. wai ships no user-invoked skills: every one stays model-invocable, so agents can preload and reach them.
 
 ## Layout
 

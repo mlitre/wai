@@ -19,6 +19,7 @@ The plugin also ships hooks: three for Diffscape (see [DIFFSCAPE.md](./DIFFSCAPE
 - **improve-codebase-architecture**, Architecture review producing an HTML report of deepening candidates, then a grilling loop on the picked one.
 - **pr-triage**, Single-table digest of authored + review-assigned PRs with an "Action on me?" verdict per row.
 - **resolving-merge-conflicts**, Resolve an in-progress merge or rebase hunk by hunk, by intent traced to each side's primary source. Never aborts.
+- **rigorous-pr-review**, The review standard: review rules, structural standards, driving questions, remedy shapes, language lenses, test-strategy and approval bars, plus the twelve-smell baseline in sibling `SMELLS.md`. Read by the `code-reviewer` agent; invoke directly for an inline review with no dispatch.
 - **setup**, One-time per-repo bootstrap. Writes `.claude/wai.json`, writes the workflow pointer into `CLAUDE.local.md` and excludes it via `.git/info/exclude`, opt-in scaffolds `CONTEXT.md` + `docs/adr/`.
 - **tdd**, Canonical TDD reference (Iron Law, tracer bullets, verify-fail/verify-pass gates). Auto-applied by `wai-implementer` in both modes.
 - **teach**, Multi-session teaching over a stateful workspace at `~/.claude/teach/<subject>/`, outside any repo.
@@ -34,7 +35,7 @@ The plugin also ships hooks: three for Diffscape (see [DIFFSCAPE.md](./DIFFSCAPE
 
 - **cavecrew-builder**, Surgical 1-2 file editor with hard refuse for 3+ file scope. Caveman-format diff receipts.
 - **codebase-analyzer**, Explains HOW specific code works. Reads files, traces data flow, documents control flow with `file:line` references.
-- **code-reviewer**, The single review surface. Reports two verdicts, Standards and Spec, side by side and never merged; carries the twelve-smell baseline in `agents/SMELLS.md` as disclosed reference. High-bar review against project CLAUDE.md plus structural standards (simplify-before-adding, 1000-line tripwire, high-confidence findings only), 0-100 confidence scoring, verbose default with compressed mode on request. Self-dispatches `silent-failure-hunter` / `pr-test-analyzer` / `comment-analyzer` / `type-design-analyzer` per heuristic; also the quality gate in `/implement-plan` and `/fix-findings`.
+- **code-reviewer**, The subagent review surface. Applies the `rigorous-pr-review` standard, adds scope resolution, specialist dispatch, folding, and an orchestrator-parseable output contract. Reports two verdicts, Standards and Spec, side by side and never merged. High-bar review against project CLAUDE.md plus structural standards (simplify-before-adding, 1000-line tripwire, high-confidence findings only), 0-100 confidence scoring, verbose default with compressed mode on request. Self-dispatches `silent-failure-hunter` / `pr-test-analyzer` / `comment-analyzer` / `type-design-analyzer` per heuristic; also the quality gate in `/implement-plan` and `/fix-findings`.
 - **comment-analyzer**, Read-only audit of code comments for accuracy, completeness, and long-term value.
 - **pr-test-analyzer**, Reviews a PR's test coverage for behavioral completeness with 1-10 criticality rubric.
 - **silent-failure-hunter**, Hunts for silent failures, swallowed errors, and inappropriate fallback behavior. Zero tolerance.

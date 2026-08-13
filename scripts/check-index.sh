@@ -20,8 +20,9 @@ fi
 # Names on disk
 disk_skills=$(find "$plugin/skills" -mindepth 2 -maxdepth 2 -name SKILL.md \
               -exec sh -c 'basename "$(dirname "$1")"' _ {} \; | sort -u)
-# An agent is a .md with a `name:` in its frontmatter. ALL-CAPS siblings like
-# SMELLS.md are disclosed reference, not roster entries.
+# An agent is a .md with a `name:` in its frontmatter. agents/ is flat and one
+# file per agent; disclosed reference lives in reference/. The check also
+# catches an agent whose frontmatter is malformed.
 disk_agents=$(find "$plugin/agents" -mindepth 1 -maxdepth 1 -name '*.md' \
               -exec sh -c 'grep -q "^name:" "$1" && basename "$1" .md' _ {} \; | sort -u)
 disk_commands=$(find "$plugin/commands" -mindepth 1 -maxdepth 1 -name '*.md' \
