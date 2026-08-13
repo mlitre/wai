@@ -1,6 +1,9 @@
 # Per-machine Claude Code settings (sandbox, allowlists, etc.)
 .claude/settings.local.json
 
+# Worktrees created inside the repo are their own checkouts, never commit them
+.claude/worktrees/
+
 .ds
 
 # macOS
