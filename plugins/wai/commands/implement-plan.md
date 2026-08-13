@@ -22,10 +22,9 @@ If no plan path is given, ask. Don't guess.
 
 1. **Read the plan completely.** No `limit`/`offset`.
 2. **Read `.claude/wai.json`.** Extract `parallel_cap` (default 3 if missing). Override with `--parallel-cap` flag.
-3. **Parse the DAG.** Same parse contract as `to-issues`:
+3. **Parse the DAG.** Parse contract defined in `/create-plan`:
    - `### T<n>, <title>` heading.
    - `depends_on: [T<n>, T<m>]` line.
-   - Optional `issue: #N` line.
    - Checkbox steps.
 4. **Validate the DAG.** Topological sort. If a cycle exists, abort with the cycle named.
 5. **Check existing state.** For each task, if all its checkbox steps are `[x]`, mark `complete` upfront, don't re-run. Trust prior work.
@@ -194,5 +193,7 @@ The first time this command runs on a plan that was generated *before* the DAG-w
 ## Workflow position
 
 ```
-/create-plan → to-issues (opt-in) → /implement-plan → /validate-plan → /review-pr → /ds → /describe-pr → ...
+/create-plan → /implement-plan → /ds → /describe-pr → ...
 ```
+
+For a flat list of independent findings rather than a DAG, use `/fix-findings`, same machine, different parser.

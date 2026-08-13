@@ -40,6 +40,7 @@ Catalog of every artifact the plugin ships. One line per artifact, alphabetical 
 - **/create-plan**, Build a DAG plan (`### T<n>` + `depends_on:` + checkbox steps). Parses cleanly into `/implement-plan`, `to-issues`, `/validate-plan`.
 - **/describe-pr**, Generate a PR description from the diff using the repo's PR template. Writes `.claude/pr-descriptions/<branch-slug>.md`. No push, no `gh pr edit`.
 - **/diagnose**, Run the `diagnose` skill's loop against a bug description (default) or against a PR's failing GitHub Actions logs (`--from-ci <pr>`).
+- **/fix-findings**, Walk a flat findings list (handoff doc, review output, diagnosis report). Same chain as `/implement-plan`, fully parallel, no dependencies.
 - **/implement-plan**, Walk the DAG. Dispatches `wai-implementer` → `wai-spec-reviewer` → `code-reviewer` per task, parallel up to `parallel_cap`. Retry-once → quarantine.
 - **/iterate-plan**, Surgical edits to an existing implementation plan with new feedback.
 - **/local-review**, Set up a worktree for reviewing a colleague's branch (`/local-review <user>:<branch>`).
