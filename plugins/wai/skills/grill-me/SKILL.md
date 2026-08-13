@@ -24,6 +24,12 @@ When the user uses vague or overloaded terms, propose a precise canonical term. 
 
 When domain relationships or interfaces come up, invent specific scenarios that probe edge cases and force the user to be precise about boundaries. "Suppose the user cancels at the same instant the payment webhook fires, which side wins?"
 
+### Branches that aren't the user's to resolve
+
+Some branches resolve to "I need to ask someone else". Those are the ones that quietly stall: they land in a session summary and nobody carries them to the person who holds the answer.
+
+When a branch resolves that way, offer `to-questionnaire`. It turns the open branch into a Markdown document aimed at the one person who can close it, filled in async or worked through in a meeting. Offer once, per branch, at the moment it surfaces. If the user declines, note the branch as open in the final summary and move on.
+
 ### Cross-reference with code
 
 When the user states how something works, check whether the code agrees. If you find a contradiction, surface it. "Your code cancels entire Orders, but you just said partial cancellation is possible, which is right?" Treat this as the primary way to ground claims, not the secondary.

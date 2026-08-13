@@ -89,12 +89,31 @@ Anything else worth passing on, where to find related docs, gotchas, project-spe
 
 ## After writing
 
-Tell the user the file path and the resume command:
+Tell the user the file path and both ways to pick it up:
 
 ```
 Handoff written to <absolute path>.
 
-Resume in a new session with:
+Resume by hand in a new session:
 
   /resume-handoff <path>
+
+Or hand it straight to a background agent:
+
+  claude --bg "/resume-handoff <path>"
 ```
+
+### Handing it to a background agent
+
+When the user asks to hand the work off rather than park it (`--bg`, "start it now", "send it to an agent"), run the background form yourself instead of printing it:
+
+```bash
+claude --bg "/resume-handoff <absolute path>"
+```
+
+Verified against Claude Code 2.1.231, where `--bg` starts the session as a background agent. If the flag is missing on the user's version, print the manual command and say why rather than guessing at a substitute.
+
+Two rules on the automated form:
+
+- **Pass the absolute path.** The background agent does not inherit this session's working directory.
+- **The handoff doc has to be complete first.** A background agent cannot come back and ask what you meant, so anything you were planning to explain in chat belongs in the file.

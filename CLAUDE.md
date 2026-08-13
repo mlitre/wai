@@ -13,6 +13,8 @@ Domain-specific compliance work (EV charging, payments, internal RFCs, ...) is *
 
 Content is **inspired by** [mattpocock/skills](https://github.com/mattpocock/skills) and [humanlayer's `.claude/`](https://github.com/humanlayer/humanlayer/tree/main/.claude), but every artifact is rewritten for personal use. There is no upstream sync, this repo is the source of truth.
 
+Terms used throughout this file (artifact, port, merge, graft, roster, pointer, axis, gate, spine, sediment) are defined in [CONTEXT.md](./CONTEXT.md). Read it before writing anything that uses them.
+
 ## Layout
 
 ```
@@ -31,7 +33,10 @@ wai/
 │   ├── server/                         # diffscape: Node review server
 │   ├── ui/                             # diffscape: single-page review UI
 │   └── vendor/                         # diffscape: diff2html + highlight.js
-├── scripts/check-index.sh              # lints plugins/wai/INDEX.md vs artifact tree
+├── scripts/check-index.sh              # lints INDEX.md + SOURCES.md provenance vs artifact tree
+├── scripts/usage-audit.sh              # measures the roster against real transcripts
+├── reports/                            # dated usage-audit output (untracked)
+├── CONTEXT.md                          # glossary
 ├── docs/adr/                           # decision records for the plugin itself
 ├── archive/                            # superseded artifacts, kept for reference
 ├── README.md, SOURCES.md, LICENSE
@@ -43,6 +48,7 @@ wai/
 - **Agent frontmatter:** `name`, `description`, `tools`.
 - **Command frontmatter:** `description`; optional `model`, `inspired-by`.
 - **Every ported artifact** carries an `inspired-by` line in its frontmatter pointing at the upstream path, AND a corresponding row in `SOURCES.md`. Both are required. Future-you uses these to diff-check upstream when looking for new ideas.
+- **Writing standard:** the `writing-for-agents` skill governs every document here. Read it before adding or reworking one.
 - **Voice:** mattpocock-style hybrid, direct, opinionated, conversational. Short paragraphs. Name files and line numbers. Avoid filler ("delve", "crucial", "robust", "nuanced"). Don't use ALL-CAPS guardrails unless a specific anti-pattern needs blocking.
 - **No upstream sync.** This is a "fork-and-own" toolkit. If mattpocock or humanlayer ships a great new artifact, port the *idea*, never run a script that pulls files in.
 - **gstack stays separate.** The third-party gstack framework lives at `~/.claude/skills/gstack/` with its own update path. Do not move gstack content into this repo, and do not reference gstack paths from wai artifacts.
@@ -63,11 +69,21 @@ After adding/removing skills, agents, or commands, run:
 scripts/check-index.sh
 ```
 
-Exit 0 = `plugins/wai/INDEX.md` matches the tree. Exit 1 = drift; fix the index.
+Exit 0 = `plugins/wai/INDEX.md` matches the tree **and** every artifact declaring `inspired-by` has a `SOURCES.md` row (and vice versa). Exit 1 = drift; fix it. Local consistency only, no network: upstream reorganizing its repo must never turn this red.
+
+## Measure before cutting
+
+Before any roster strip, run:
+
+```
+scripts/usage-audit.sh
+```
+
+It writes `reports/usage-audit-<date>.md`, untracked like `plans/`, since the counts are per-machine. Read the disk-artifact table before the invocation counts, and diff against the previous report rather than reading one in isolation. See `docs/adr/0006`.
 
 ## What NOT to do
 
-- Do not write a `package.json`, build script, or test runner. The repo has no toolchain by design, these are markdown files read by Claude at runtime.
+- Do not write a `package.json`, build script, or test runner. The repo has no toolchain by design, these are markdown files read by Claude at runtime. Two scripts are exempt (`check-index.sh`, `usage-audit.sh`); both lint or measure the repo against itself rather than building it, which is where the line sits. See `docs/adr/0006`.
 - Do not invent `bun run ...`, `npm test`, etc. There is nothing to run.
 - Do not vendor upstream files verbatim. Anything in this repo is your own writing.
 - Do not include machine-specific absolute paths (`/Users/mlitre/...`, `~/.gstack/...`) in artifacts. Use `${CLAUDE_PLUGIN_ROOT}` for plugin-relative paths if you ever need filesystem references.
