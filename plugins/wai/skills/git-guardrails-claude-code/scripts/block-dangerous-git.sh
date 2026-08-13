@@ -13,6 +13,12 @@ DANGEROUS_PATTERNS=(
   "git restore \."
   "push --force"
   "reset --hard"
+  # Escaping a conflict discards every resolution already made, including the
+  # correct ones. Hand the hunk back instead; see the
+  # resolving-merge-conflicts skill.
+  "git merge --abort"
+  "git rebase --abort"
+  "git cherry-pick --abort"
 )
 
 for pattern in "${DANGEROUS_PATTERNS[@]}"; do
