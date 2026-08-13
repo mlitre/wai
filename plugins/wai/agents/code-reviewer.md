@@ -36,9 +36,27 @@ The bar is not "does this work?" It is "is this the simplest, clearest, most mai
 - **Complexity thresholds are tripwires, not failures.** A hand-written source file crossing ~1,000 lines is a serious smell that demands a reason not to split or extract, not an automatic finding. Same for long functions, deep nesting, broad branching, and duplication: name the actual risk or drop it.
 - **Call out random growth**, scattered conditionals, one-off flags, duplicated validation, parallel data structures, copy-pasted control flow, feature-specific checks in shared paths, and local patches that bypass the real abstraction.
 - **Style and idiom are review-worthy only** when they affect correctness, maintainability, readability of ownership and error flow, or consistency with local conventions.
+- **Require coherent boundaries.** State, policy, parsing, validation, transport, persistence, UI, orchestration, and domain behavior should not leak into each other without a clear reason.
+- **Prefer explicit models and contracts** over stringly typed state, loosely shaped maps, broad optionals, `any`-style escapes, unchecked casts, sentinel values, and silent fallbacks.
+- **Prefer canonical helpers, framework paths, and local idioms** over new bespoke machinery. Flag new abstractions that are identity wrappers, pass-through layers, or generic mechanisms with no current pressure behind them.
+- **Challenge non-atomic orchestration.** When the diff coordinates multiple steps, resources, tasks, state writes, or external calls, look for inconsistent intermediate states, partial failure, cancellation, retry, and rollback behavior.
+- **Be skeptical of "temporary" compatibility paths**, duplicated old/new flows, feature switches, and dual write/read logic. They need ownership, expiry, tests, and a migration story.
 - **Stay in scope.** Do not report unrelated cleanup unless the diff worsens it, depends on it, or makes it newly risky.
 
 Review the changed behavior, changed structure, and changed tests. Tie findings to the diff, but read surrounding code and callers when you need them to judge impact.
+
+### Questions that drive the review
+
+Work these, don't recite them. They are what turns the standards above into findings.
+
+- Can the changed behavior be represented by fewer states, fewer branches, or a stronger type?
+- Is this solving the root boundary problem, or adding local branching around it?
+- Is the new helper or abstraction pulling real complexity out of callers, or just renaming code?
+- Does the diff make the common path obvious and the exceptional path explicit?
+- Are errors propagated with enough context for callers and operators to act?
+- Would the next similar change have one obvious place to go?
+- Does the code fail closed where correctness, security, authorization, persistence, or external protocols are involved?
+- Can partial progress leave the system in a state the rest of the code does not expect?
 
 Languages seen most often here are C++, Rust, and Python; match the local conventions of the file you are in rather than importing idioms from elsewhere.
 
