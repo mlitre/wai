@@ -26,12 +26,14 @@ wai/
 │   ├── WORKFLOW.md                     # canonical workflow spine
 │   ├── INDEX.md                        # per-artifact catalog (linted by scripts/check-index.sh)
 │   ├── DIFFSCAPE.md                    # diffscape feature doc (engine exception)
-│   ├── hooks/                          # diffscape: SessionStart / UserPromptSubmit / PostToolUse
+│   ├── hooks/                          # nudge-general-purpose.sh + diffscape hooks
 │   ├── scripts/                        # diffscape: server start/stop + tests
 │   ├── server/                         # diffscape: Node review server
 │   ├── ui/                             # diffscape: single-page review UI
 │   └── vendor/                         # diffscape: diff2html + highlight.js
 ├── scripts/check-index.sh              # lints plugins/wai/INDEX.md vs artifact tree
+├── docs/adr/                           # decision records for the plugin itself
+├── archive/                            # superseded artifacts, kept for reference
 ├── README.md, SOURCES.md, LICENSE
 ```
 
