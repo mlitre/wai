@@ -1,4 +1,6 @@
 ---
+name: implement-plan
+disable-model-invocation: true
 description: Execute a wai DAG plan task-by-task. Walks the `T<n>` / `depends_on:` graph, dispatches `wai-implementer` → `wai-spec-reviewer` → `code-reviewer` per task, parallel up to `.claude/wai.json`'s `parallel_cap`. Retry-once on reviewer rejection; quarantine on second failure. End-of-walk report lists green vs blocked tasks.
 inspired-by: humanlayer/.claude/commands/implement_plan.md
 ---

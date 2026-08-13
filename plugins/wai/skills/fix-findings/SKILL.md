@@ -1,4 +1,6 @@
 ---
+name: fix-findings
+disable-model-invocation: true
 description: Execute a flat findings list item-by-item. Parses a numbered list out of a handoff doc, a `code-reviewer` output, or a diagnosis report, then dispatches `wai-implementer` (freeform) → `wai-spec-reviewer` → `code-reviewer` per item, fully parallel up to `.claude/wai.json`'s `parallel_cap`. Retry-once on reviewer rejection; quarantine on second failure. End-of-walk report lists green vs blocked items.
 argument-hint: "[path/to/findings.md] [--parallel-cap N] [--only 3,5]"
 ---

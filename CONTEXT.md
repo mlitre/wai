@@ -13,8 +13,11 @@ The catalog at `.claude-plugin/marketplace.json`, read by Claude Code when someo
 `plugins/wai/`, the thing that gets installed. Holds every artifact.
 
 **Artifact**
-One installable unit inside the plugin: a skill, an agent, or a command. Reference files (`SMELLS.md`, `DEEPENING.md`, `SKILL-MECHANICS.md`) are not artifacts, they are disclosed reference belonging to one.
-*Avoid*: tool, module, item.
+One installable unit inside the plugin: a skill or an agent. Reference files (`SMELLS.md`, `DEEPENING.md`, `SKILL-MECHANICS.md`) are not artifacts, they are disclosed reference belonging to one.
+*Avoid*: tool, module, item, command.
+
+**Command**
+Retired term. The plugin system treats `commands/*.md` and `skills/<name>/SKILL.md` as one component type, both registering a `/name` shortcut, so wai calls them all skills. Say **user-invoked skill** for one only the human can fire.
 
 **Roster**
 The full set of artifacts currently on disk. `INDEX.md` is its human-facing catalog, `scripts/check-index.sh` is what keeps the two honest.
@@ -43,6 +46,9 @@ The rule that "did it leave files behind" outranks "was it invoked" when judging
 Stale material that accumulates because adding feels safe and removing feels risky. What the 56-to-38 strip was clearing.
 
 ## Documents
+
+**User-invoked**
+A skill with `disable-model-invocation: true`: only the human typing `/name` can fire it, and no other artifact can reach it. Costs no context load, spends cognitive load instead.
 
 **Pointer**
 A reference held in context that names out-of-context material and encodes when to reach it. A skill's `description` and a naming line in `CLAUDE.md` are the same object. Full treatment in `writing-for-agents`.

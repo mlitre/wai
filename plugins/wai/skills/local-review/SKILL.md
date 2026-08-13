@@ -1,4 +1,6 @@
 ---
+name: local-review
+disable-model-invocation: true
 description: Set up a worktree for reviewing a colleague's branch, adds their fork as a remote, fetches, creates the worktree.
 inspired-by: humanlayer/.claude/commands/local_review.md
 ---

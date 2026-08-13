@@ -1,4 +1,5 @@
 ---
+name: spec-registry
 description: Inspect, validate, or update the spec registry consumed by standards-compliance-checker agents.
 ---
 

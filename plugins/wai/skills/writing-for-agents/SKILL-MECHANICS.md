@@ -4,7 +4,7 @@ The skill-specific branch of [writing-for-agents](./SKILL.md): what changes when
 
 ## Frontmatter
 
-wai conventions, enforced by `scripts/check-index.sh`:
+wai conventions, enforced by `scripts/check-index.sh`. There is no `commands/` directory: a plugin command and a plugin skill are the same component type, and only `skills/<name>/` can carry siblings.
 
 ```yaml
 ---
@@ -51,7 +51,9 @@ Name the triggers, and stop there. Hype ("ALWAYS USE THIS!!") is a no-op the mod
 
 When user-invoked skills multiply past what you can remember, that piled-up cognitive load is cured by a **router skill**: one user-invoked skill naming the others and when to reach for each, so the human remembers one instead of many. It can only hint, never fire them, since user-invoked skills have no description and nothing but the human can reach them.
 
-In wai the human-facing router is `INDEX.md`, not a skill. wai ships no user-invoked skills: every one stays model-invocable, so agents can preload and reach them.
+In wai the human-facing router is `INDEX.md`, not a skill.
+
+wai ships five user-invoked skills (`implement-plan`, `fix-findings`, `setup`, `local-review`, `resume-handoff`), each one an artifact where an accidental autonomous fire is expensive or hard to undo. Everything else stays model-invocable, and anything another artifact preloads or invokes has no choice about it.
 
 ## Layout
 

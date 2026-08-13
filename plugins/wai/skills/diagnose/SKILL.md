@@ -1,6 +1,7 @@
 ---
 name: diagnose
-description: Disciplined diagnosis loop for hard bugs and performance regressions. Output is a Diagnosis Report, root cause + minimal repro + proposed fix sketch. Does NOT edit code. Trivial fixes hand off to `cavecrew-builder`; non-trivial fixes hand off to `/create-plan`. Use when the user says "diagnose this" / "debug this", reports a bug, says something is broken/throwing/failing, or describes a performance regression.
+argument-hint: "[--from-ci <pr-number-or-url>] <bug-description-or-empty>"
+description: Disciplined diagnosis loop for hard bugs and performance regressions. Takes a bug description, or `--from-ci <pr>` to ingest a PR's failing GitHub Actions logs. Output is a Diagnosis Report, root cause + minimal repro + proposed fix sketch. Does NOT edit code. Trivial fixes hand off to `cavecrew-builder`; non-trivial fixes hand off to `/create-plan`. Use when the user says "diagnose this" / "debug this", reports a bug, says something is broken/throwing/failing, or describes a performance regression.
 allowed-tools:
   - Bash
   - Read
@@ -16,6 +17,21 @@ inspired-by:
 A discipline for hard bugs. Skip phases only when you can name *which* phase you are skipping and *why*.
 
 > **INVARIANT, no code here.** This skill does not modify source files. The output is a written Diagnosis Report. Code changes happen only via `cavecrew-builder` (trivial 1-2 file fix) or `/create-plan → /implement-plan` (non-trivial). See `plugins/wai/WORKFLOW.md`.
+
+## Arguments
+
+```
+/diagnose <bug description>
+/diagnose --from-ci <pr-number-or-url>
+```
+
+| Argument | Effect |
+|---|---|
+| `<bug description>` | Default mode. Run the loop below against the description. |
+| `--from-ci <pr>` | Ingest a PR's failing GitHub Actions logs as the bug signal, then run the same loop. Requires `gh` auth; surface the auth error rather than falling back. |
+| (empty) | Ask: "What bug am I diagnosing? Give me a description, or pass `--from-ci <pr-number-or-url>` to ingest CI logs." |
+
+Both modes end in the same place: a Diagnosis Report at `plans/<YYYY-MM-DD>-diagnose-<slug>.md`, and the same hand-off (trivial fix to `cavecrew-builder`, non-trivial to `/create-plan`).
 
 ## Phase 1, Build a feedback loop
 
@@ -182,3 +198,79 @@ Either way, the fix lands later through the normal workflow. This skill stops at
 | "Reference is too long, I'll adapt the pattern" | Partial understanding guarantees bugs. Read it completely. |
 | "I see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause. |
 | "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem. Question the pattern, don't fix again. |
+
+## `--from-ci` mode
+
+```
+/diagnose --from-ci 1234
+/diagnose --from-ci https://github.com/owner/repo/pull/1234
+```
+
+### 1. Resolve the PR
+
+```bash
+# pr-number or URL → branch + head sha
+gh pr view "$PR" --json number,headRefName,headRefOid,commits
+```
+
+### 2. Find failing checks
+
+```bash
+gh pr checks "$PR" --json name,state,link | jq '[.[] | select(.state=="FAILURE")]'
+```
+
+If no failures, report "No failing checks on PR #$PR" and stop.
+
+### 3. Fetch logs for each failing check
+
+```bash
+# get the run-id from the check link, then:
+gh run view <run-id> --log-failed
+```
+
+`--log-failed` prints only the failed-step output (cheaper than `--log` for long runs).
+
+### 4. Extract the failure signal
+
+For each failing check:
+
+- Identify the failure mode (test failure / build error / lint violation / deploy issue).
+- Extract the specific error message + traceback + assertion.
+- Find the file:line refs in the failure output.
+- Note which job/step failed (so the skill knows which boundary to instrument).
+
+### 5. Hand the failure signal to the `diagnose` skill
+
+Bundle into a synthetic "bug description" with the structure:
+
+```
+Bug: <one-line failure description>
+Source: PR #$PR / check `<check-name>` / step `<step-name>`
+Trace:
+<paste the relevant traceback>
+
+Failing assertion: <file:line>: <assertion text>
+Expected: <X>
+Actual: <Y>
+```
+
+Run the `diagnose` skill against this synthetic description. Phase 1's feedback loop should be the failing test or build command itself, the loop already exists, you just need to reproduce locally.
+
+### 6. Same hand-off
+
+Output: `plans/<YYYY-MM-DD>-diagnose-<slug>.md` Diagnosis Report. Trivial fix → `cavecrew-builder`. Non-trivial → `/create-plan`.
+
+## Slug heuristic
+
+For the report filename, derive a slug from:
+
+- The first 5-8 meaningful words of the bug description (default mode).
+- `<check-name>-<step-name>` (`--from-ci` mode).
+- Truncate to ~50 chars total. Lowercase, kebab-case.
+
+Example: `plans/2026-05-26-diagnose-token-expiry-off-by-one.md`.
+
+## `--from-ci` hard rules
+
+- **`--from-ci` requires `gh` auth.** Surface the auth error if `gh pr view` or `gh run view` fails; never diagnose against a partial log fetch.
+- **Don't trust the CI report verbatim.** Phase 2 is non-skippable in this mode too: reproduce locally and confirm the failure mode matches what CI reported.
